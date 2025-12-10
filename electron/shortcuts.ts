@@ -3,14 +3,69 @@ import { IShortcutsHelperDeps } from "./main"
 import { configHelper } from "./ConfigHelper"
 import { keyboard } from "@nut-tree-fork/nut-js"
 
+// Helper to safely register global shortcuts
+function safeRegister(accelerator: string, callback: () => void): boolean {
+  try {
+    if (globalShortcut.isRegistered(accelerator)) {
+      globalShortcut.unregister(accelerator)
+    }
+    return globalShortcut.register(accelerator, callback)
+  } catch (error) {
+    console.error(`Failed to register shortcut ${accelerator}:`, error)
+    return false
+  }
+}
+
 export class ShortcutsHelper {
   private deps: IShortcutsHelperDeps
   private isTyping: boolean = false
   private shouldStopTyping: boolean = false
+  private isPaused: boolean = false
+  private typingSpeed: number = 75 // Default speed in ms
   private keypressListener: any = null
 
   constructor(deps: IShortcutsHelperDeps) {
     this.deps = deps
+  }
+
+  private adjustTypingSpeed(delta: number): void {
+    this.typingSpeed = Math.max(10, Math.min(500, this.typingSpeed + delta))
+    keyboard.config.autoDelayMs = this.typingSpeed
+    console.log(`Typing speed adjusted to ${this.typingSpeed}ms (${delta > 0 ? 'slower' : 'faster'})`)
+    
+    // Show notification to user
+    const mainWindow = this.deps.getMainWindow()
+    if (mainWindow) {
+      const speedLabel = this.typingSpeed <= 30 ? 'Very Fast' : 
+                        this.typingSpeed <= 60 ? 'Fast' : 
+                        this.typingSpeed <= 100 ? 'Normal' : 
+                        this.typingSpeed <= 200 ? 'Slow' : 'Very Slow'
+      mainWindow.webContents.send("show-notification", {
+        title: "Typing Speed",
+        message: `${speedLabel} (${this.typingSpeed}ms)`,
+        type: "info"
+      })
+    }
+  }
+
+  private togglePause(): void {
+    if (!this.isTyping) {
+      console.log("Not currently typing, cannot pause")
+      return
+    }
+    
+    this.isPaused = !this.isPaused
+    console.log(`Typing ${this.isPaused ? 'paused' : 'resumed'}`)
+    
+    // Show notification to user
+    const mainWindow = this.deps.getMainWindow()
+    if (mainWindow) {
+      mainWindow.webContents.send("show-notification", {
+        title: this.isPaused ? "Typing Paused" : "Typing Resumed",
+        message: this.isPaused ? "Press Alt+Backspace to resume" : "Typing continues...",
+        type: "info"
+      })
+    }
   }
 
   private setupKeypressListener(): void {
@@ -41,67 +96,79 @@ export class ShortcutsHelper {
   }
 
   private adjustOpacity(delta: number): void {
-    const mainWindow = this.deps.getMainWindow();
-    if (!mainWindow) return;
-
-    let currentOpacity = mainWindow.getOpacity();
-    let newOpacity = Math.max(0.1, Math.min(1.0, currentOpacity + delta));
-    console.log(`Adjusting opacity from ${currentOpacity} to ${newOpacity}`);
-
-    mainWindow.setOpacity(newOpacity);
-
-    // Save the opacity setting to config without re-initializing the client
     try {
-      const config = configHelper.loadConfig();
-      config.opacity = newOpacity;
-      configHelper.saveConfig(config);
-    } catch (error) {
-      console.error('Error saving opacity to config:', error);
-    }
+      const mainWindow = this.deps.getMainWindow();
+      if (!mainWindow || mainWindow.isDestroyed()) return;
 
-    // If we're making the window visible, also make sure it's shown and interaction is enabled
-    if (newOpacity > 0.1 && !this.deps.isVisible()) {
-      this.deps.toggleMainWindow();
+      let currentOpacity = mainWindow.getOpacity();
+      if (typeof currentOpacity !== 'number' || isNaN(currentOpacity)) {
+        currentOpacity = 1.0;
+      }
+      
+      let newOpacity = Math.max(0.1, Math.min(1.0, currentOpacity + delta));
+      console.log(`Adjusting opacity from ${currentOpacity} to ${newOpacity}`);
+
+      mainWindow.setOpacity(newOpacity);
+
+      // Save the opacity setting to config without re-initializing the client
+      try {
+        const config = configHelper.loadConfig();
+        config.opacity = newOpacity;
+        configHelper.saveConfig(config);
+      } catch (error) {
+        console.error('Error saving opacity to config:', error);
+      }
+
+      // If we're making the window visible, also make sure it's shown and interaction is enabled
+      if (newOpacity > 0.1 && !this.deps.isVisible()) {
+        this.deps.toggleMainWindow();
+      }
+    } catch (error) {
+      console.error('Error adjusting opacity:', error);
     }
   }
 
   public registerGlobalShortcuts(): void {
-    globalShortcut.register("CommandOrControl+H", async () => {
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
-        console.log("Taking screenshot...")
-        try {
+    safeRegister("CommandOrControl+H", async () => {
+      try {
+        const mainWindow = this.deps.getMainWindow()
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          console.log("Taking screenshot...")
           const screenshotPath = await this.deps.takeScreenshot()
-          const preview = await this.deps.getImagePreview(screenshotPath)
-          mainWindow.webContents.send("screenshot-taken", {
-            path: screenshotPath,
-            preview
-          })
-        } catch (error) {
-          console.error("Error capturing screenshot:", error)
+          if (screenshotPath) {
+            const preview = await this.deps.getImagePreview(screenshotPath)
+            mainWindow.webContents.send("screenshot-taken", {
+              path: screenshotPath,
+              preview
+            })
+          }
         }
+      } catch (error) {
+        console.error("Error capturing screenshot:", error)
       }
     })
 
     // Alias for Ctrl+H - Ctrl+M to take screenshot
-    globalShortcut.register("CommandOrControl+M", async () => {
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
-        console.log("Taking screenshot (alias for Ctrl+H)...")
-        try {
+    safeRegister("CommandOrControl+M", async () => {
+      try {
+        const mainWindow = this.deps.getMainWindow()
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          console.log("Taking screenshot (alias for Ctrl+H)...")
           const screenshotPath = await this.deps.takeScreenshot()
-          const preview = await this.deps.getImagePreview(screenshotPath)
-          mainWindow.webContents.send("screenshot-taken", {
-            path: screenshotPath,
-            preview
-          })
-        } catch (error) {
-          console.error("Error capturing screenshot:", error)
+          if (screenshotPath) {
+            const preview = await this.deps.getImagePreview(screenshotPath)
+            mainWindow.webContents.send("screenshot-taken", {
+              path: screenshotPath,
+              preview
+            })
+          }
         }
+      } catch (error) {
+        console.error("Error capturing screenshot:", error)
       }
     })
 
-    globalShortcut.register("CommandOrControl+Enter", async () => {
+    safeRegister("CommandOrControl+Enter", async () => {
       console.log("Ctrl+Enter pressed - Processing screenshots...")
       try {
         const result = await this.deps.processingHelper?.processScreenshots()
@@ -135,22 +202,24 @@ export class ShortcutsHelper {
 
         // Step 2: Capture screenshot (like Ctrl+H)
         console.log("Step 2: Capturing screenshot...")
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
           const screenshotPath = await this.deps.takeScreenshot()
-          const preview = await this.deps.getImagePreview(screenshotPath)
-          mainWindow.webContents.send("screenshot-taken", {
-            path: screenshotPath,
-            preview
-          })
+          if (screenshotPath) {
+            const preview = await this.deps.getImagePreview(screenshotPath)
+            mainWindow.webContents.send("screenshot-taken", {
+              path: screenshotPath,
+              preview
+            })
 
-          // Small delay to ensure screenshot is added to queue
-          await new Promise(resolve => setTimeout(resolve, 200))
+            // Small delay to ensure screenshot is added to queue
+            await new Promise(resolve => setTimeout(resolve, 200))
 
-          // Step 3: Process (like Ctrl+Enter)
-          console.log("Step 3: Processing screenshot...")
-          const result = await this.deps.processingHelper?.processScreenshots()
-          if (result) {
-            console.log("Quick Answer result:", result.success ? "SUCCESS" : `FAILED: ${result.error}`)
+            // Step 3: Process (like Ctrl+Enter)
+            console.log("Step 3: Processing screenshot...")
+            const result = await this.deps.processingHelper?.processScreenshots()
+            if (result) {
+              console.log("Quick Answer result:", result.success ? "SUCCESS" : `FAILED: ${result.error}`)
+            }
           }
         }
       } catch (error) {
@@ -159,116 +228,164 @@ export class ShortcutsHelper {
     }
 
     // Quick Answer shortcut - Ctrl+D
-    globalShortcut.register("CommandOrControl+D", quickAnswer)
+    safeRegister("CommandOrControl+D", quickAnswer)
 
-    globalShortcut.register("CommandOrControl+R", () => {
-      console.log(
-        "Command + R pressed. Canceling requests and resetting queues..."
-      )
+    safeRegister("CommandOrControl+R", () => {
+      try {
+        console.log(
+          "Command + R pressed. Canceling requests and resetting queues..."
+        )
 
-      // Cancel ongoing API requests
-      this.deps.processingHelper?.cancelOngoingRequests()
+        // Cancel ongoing API requests
+        this.deps.processingHelper?.cancelOngoingRequests()
 
-      // Clear both screenshot queues
-      this.deps.clearQueues()
+        // Clear both screenshot queues
+        this.deps.clearQueues()
 
-      console.log("Cleared queues.")
+        console.log("Cleared queues.")
 
-      // Update the view state to 'queue'
-      this.deps.setView("queue")
+        // Update the view state to 'queue'
+        this.deps.setView("queue")
 
-      // Notify renderer process to switch view to 'queue'
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("reset-view")
-        mainWindow.webContents.send("reset")
+        // Notify renderer process to switch view to 'queue'
+        const mainWindow = this.deps.getMainWindow()
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("reset-view")
+          mainWindow.webContents.send("reset")
+        }
+      } catch (error) {
+        console.error("Error in reset handler:", error)
       }
     })
 
     // New shortcuts for moving the window
-    globalShortcut.register("CommandOrControl+Left", () => {
-      console.log("Command/Ctrl + Left pressed. Moving window left.")
-      this.deps.moveWindowLeft()
+    safeRegister("CommandOrControl+Left", () => {
+      try {
+        console.log("Command/Ctrl + Left pressed. Moving window left.")
+        this.deps.moveWindowLeft()
+      } catch (error) {
+        console.error("Error moving window left:", error)
+      }
     })
 
-    globalShortcut.register("CommandOrControl+Right", () => {
-      console.log("Command/Ctrl + Right pressed. Moving window right.")
-      this.deps.moveWindowRight()
+    safeRegister("CommandOrControl+Right", () => {
+      try {
+        console.log("Command/Ctrl + Right pressed. Moving window right.")
+        this.deps.moveWindowRight()
+      } catch (error) {
+        console.error("Error moving window right:", error)
+      }
     })
 
-    globalShortcut.register("CommandOrControl+Down", () => {
-      console.log("Command/Ctrl + down pressed. Moving window down.")
-      this.deps.moveWindowDown()
+    safeRegister("CommandOrControl+Down", () => {
+      try {
+        console.log("Command/Ctrl + down pressed. Moving window down.")
+        this.deps.moveWindowDown()
+      } catch (error) {
+        console.error("Error moving window down:", error)
+      }
     })
 
-    globalShortcut.register("CommandOrControl+Up", () => {
-      console.log("Command/Ctrl + Up pressed. Moving window Up.")
-      this.deps.moveWindowUp()
+    safeRegister("CommandOrControl+Up", () => {
+      try {
+        console.log("Command/Ctrl + Up pressed. Moving window Up.")
+        this.deps.moveWindowUp()
+      } catch (error) {
+        console.error("Error moving window up:", error)
+      }
     })
 
     // Center window shortcut - Ctrl+N
-    globalShortcut.register("CommandOrControl+N", () => {
-      console.log("Command/Ctrl + N pressed. Centering window and making it visible.")
-      this.deps.centerWindow()
+    safeRegister("CommandOrControl+N", () => {
+      try {
+        console.log("Command/Ctrl + N pressed. Centering window and making it visible.")
+        this.deps.centerWindow()
+      } catch (error) {
+        console.error("Error centering window:", error)
+      }
     })
 
-    globalShortcut.register("CommandOrControl+B", () => {
-      console.log("Command/Ctrl + B pressed. Toggling window visibility.")
-      this.deps.toggleMainWindow()
+    safeRegister("CommandOrControl+B", () => {
+      try {
+        console.log("Command/Ctrl + B pressed. Toggling window visibility.")
+        this.deps.toggleMainWindow()
+      } catch (error) {
+        console.error("Error toggling window:", error)
+      }
     })
 
     // Alias for Ctrl+B - Alt+1 to toggle visibility
-    globalShortcut.register("Alt+1", () => {
-      console.log("Alt+1 pressed. Toggling window visibility (alias for Ctrl+B).")
-      this.deps.toggleMainWindow()
+    safeRegister("Alt+1", () => {
+      try {
+        console.log("Alt+1 pressed. Toggling window visibility (alias for Ctrl+B).")
+        this.deps.toggleMainWindow()
+      } catch (error) {
+        console.error("Error toggling window:", error)
+      }
     })
 
     // Alias for Ctrl+B - Ctrl+I to toggle visibility
-    globalShortcut.register("CommandOrControl+I", () => {
-      console.log("Command/Ctrl + I pressed. Toggling window visibility (alias for Ctrl+B).")
-      this.deps.toggleMainWindow()
+    safeRegister("CommandOrControl+I", () => {
+      try {
+        console.log("Command/Ctrl + I pressed. Toggling window visibility (alias for Ctrl+B).")
+        this.deps.toggleMainWindow()
+      } catch (error) {
+        console.error("Error toggling window:", error)
+      }
     })
 
-    globalShortcut.register("CommandOrControl+Q", () => {
+    safeRegister("CommandOrControl+Q", () => {
       console.log("Command/Ctrl + Q pressed. Quitting application.")
       app.quit()
     })
 
     // Adjust opacity shortcuts
-    globalShortcut.register("CommandOrControl+[", () => {
+    safeRegister("CommandOrControl+[", () => {
       console.log("Command/Ctrl + [ pressed. Decreasing opacity.")
       this.adjustOpacity(-0.1)
     })
 
-    globalShortcut.register("CommandOrControl+]", () => {
+    safeRegister("CommandOrControl+]", () => {
       console.log("Command/Ctrl + ] pressed. Increasing opacity.")
       this.adjustOpacity(0.1)
     })
 
     // Zoom controls
-    globalShortcut.register("CommandOrControl+-", () => {
-      console.log("Command/Ctrl + - pressed. Zooming out.")
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
-        const currentZoom = mainWindow.webContents.getZoomLevel()
-        mainWindow.webContents.setZoomLevel(currentZoom - 0.5)
+    safeRegister("CommandOrControl+-", () => {
+      try {
+        console.log("Command/Ctrl + - pressed. Zooming out.")
+        const mainWindow = this.deps.getMainWindow()
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const currentZoom = mainWindow.webContents.getZoomLevel()
+          mainWindow.webContents.setZoomLevel(currentZoom - 0.5)
+        }
+      } catch (error) {
+        console.error("Error zooming out:", error)
       }
     })
 
-    globalShortcut.register("CommandOrControl+0", () => {
-      console.log("Command/Ctrl + 0 pressed. Resetting zoom.")
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
-        mainWindow.webContents.setZoomLevel(0)
+    safeRegister("CommandOrControl+0", () => {
+      try {
+        console.log("Command/Ctrl + 0 pressed. Resetting zoom.")
+        const mainWindow = this.deps.getMainWindow()
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.setZoomLevel(0)
+        }
+      } catch (error) {
+        console.error("Error resetting zoom:", error)
       }
     })
 
-    globalShortcut.register("CommandOrControl+=", () => {
-      console.log("Command/Ctrl + = pressed. Zooming in.")
-      const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
-        const currentZoom = mainWindow.webContents.getZoomLevel()
-        mainWindow.webContents.setZoomLevel(currentZoom + 0.5)
+    safeRegister("CommandOrControl+=", () => {
+      try {
+        console.log("Command/Ctrl + = pressed. Zooming in.")
+        const mainWindow = this.deps.getMainWindow()
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const currentZoom = mainWindow.webContents.getZoomLevel()
+          mainWindow.webContents.setZoomLevel(currentZoom + 0.5)
+        }
+      } catch (error) {
+        console.error("Error zooming in:", error)
       }
     })
 
@@ -316,13 +433,13 @@ export class ShortcutsHelper {
     }
 
     // Ctrl+\ to cycle through models in the same family
-    globalShortcut.register("CommandOrControl+\\", cycleModels)
+    safeRegister("CommandOrControl+\\", cycleModels)
 
     // Alt+2 alias for cycling models
-    globalShortcut.register("Alt+2", cycleModels)
+    safeRegister("Alt+2", cycleModels)
 
     // Ctrl+/ to toggle between MCQ and General mode
-    globalShortcut.register("CommandOrControl+/", () => {
+    safeRegister("CommandOrControl+/", () => {
       console.log("Ctrl+/ pressed. Toggling processing mode...")
       try {
         const newMode = configHelper.toggleMode()
@@ -348,30 +465,30 @@ export class ShortcutsHelper {
     })
 
     // Copy HTML to clipboard shortcut (for web dev questions)
-    globalShortcut.register("CommandOrControl+Shift+C", () => {
+    safeRegister("CommandOrControl+Shift+C", () => {
       console.log("Command/Ctrl + Shift + C pressed. Copying HTML to clipboard.")
       const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
         // Send an event to the renderer to copy HTML
         mainWindow.webContents.send("copy-html-to-clipboard")
       }
     })
 
     // Copy CSS to clipboard shortcut (for web dev questions)
-    globalShortcut.register("CommandOrControl+Shift+D", () => {
+    safeRegister("CommandOrControl+Shift+D", () => {
       console.log("Command/Ctrl + Shift + D pressed. Copying CSS to clipboard.")
       const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
         // Send an event to the renderer to copy CSS
         mainWindow.webContents.send("copy-css-to-clipboard")
       }
     })
 
     // Delete last screenshot shortcut
-    globalShortcut.register("CommandOrControl+Backspace", () => {
+    safeRegister("CommandOrControl+Backspace", () => {
       console.log("Command/Ctrl + Backspace pressed. Deleting last screenshot.")
       const mainWindow = this.deps.getMainWindow()
-      if (mainWindow) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
         // Send an event to the renderer to delete the last screenshot
         mainWindow.webContents.send("delete-last-screenshot")
       }
@@ -380,7 +497,7 @@ export class ShortcutsHelper {
 
 
     // Ctrl+Shift+V: Type clipboard content with faster speed
-    globalShortcut.register("CommandOrControl+Shift+V", async () => {
+    safeRegister("CommandOrControl+Shift+V", async () => {
       console.log("Ctrl+Shift+V pressed. Typing out clipboard content...")
 
       if (this.isTyping) {
@@ -409,7 +526,7 @@ export class ShortcutsHelper {
         // Register stop shortcuts
         stopShortcuts.forEach(key => {
           try {
-            globalShortcut.register(key, () => {
+            safeRegister(key, () => {
               if (this.isTyping) {
                 console.log(`Key ${key} pressed - stopping typing`)
                 this.shouldStopTyping = true
@@ -423,16 +540,26 @@ export class ShortcutsHelper {
         // Small delay to allow user to focus the target window
         await new Promise(resolve => setTimeout(resolve, 500))
 
-        // Configure keyboard for slightly faster typing (reduce delay between keystrokes)
-        keyboard.config.autoDelayMs = 75 // Slightly faster than default (default is 100ms)
+        // Configure keyboard with current typing speed
+        keyboard.config.autoDelayMs = this.typingSpeed
 
-        // Type character by character to allow interruption
+        // Type character by character to allow interruption and pause
         for (let i = 0; i < clipboardText.length; i++) {
+          // Check if should stop
           if (this.shouldStopTyping) {
             console.log(`Typing stopped at character ${i + 1}/${clipboardText.length}`)
             break
           }
-          await keyboard.type(clipboardText[i])
+          
+          // Check if paused
+          while (this.isPaused && !this.shouldStopTyping) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+          
+          // Type character if not stopped
+          if (!this.shouldStopTyping) {
+            await keyboard.type(clipboardText[i])
+          }
         }
 
         if (!this.shouldStopTyping) {
@@ -444,6 +571,7 @@ export class ShortcutsHelper {
       } finally {
         this.isTyping = false
         this.shouldStopTyping = false
+        this.isPaused = false
         
         // Unregister all temporary stop shortcuts
         const stopShortcuts = [
@@ -453,7 +581,9 @@ export class ShortcutsHelper {
         
         stopShortcuts.forEach(key => {
           try {
-            globalShortcut.unregister(key)
+            if (globalShortcut.isRegistered(key)) {
+              globalShortcut.unregister(key)
+            }
           } catch (err) {
             // Ignore errors
           }
@@ -465,7 +595,7 @@ export class ShortcutsHelper {
     })
 
     // Ctrl+Shift+X: Stop typing
-    globalShortcut.register("CommandOrControl+Shift+X", () => {
+    safeRegister("CommandOrControl+Shift+X", () => {
       console.log("Ctrl+Shift+X pressed. Stopping typing...")
       if (this.isTyping) {
         this.shouldStopTyping = true
@@ -475,9 +605,31 @@ export class ShortcutsHelper {
       }
     })
 
+    // Alt+Backspace: Pause/Resume typing
+    safeRegister("Alt+Backspace", () => {
+      console.log("Alt+Backspace pressed. Toggling pause...")
+      this.togglePause()
+    })
+
+    // Alt+=: Increase typing speed (faster)
+    safeRegister("Alt+=", () => {
+      console.log("Alt+= pressed. Increasing typing speed (faster)...")
+      this.adjustTypingSpeed(-15) // Decrease delay = faster
+    })
+
+    // Alt+-: Decrease typing speed (slower)
+    safeRegister("Alt+-", () => {
+      console.log("Alt+- pressed. Decreasing typing speed (slower)...")
+      this.adjustTypingSpeed(15) // Increase delay = slower
+    })
+
     // Unregister shortcuts when quitting
     app.on("will-quit", () => {
-      globalShortcut.unregisterAll()
+      try {
+        globalShortcut.unregisterAll()
+      } catch (error) {
+        console.error("Error unregistering shortcuts on quit:", error)
+      }
     })
   }
 }

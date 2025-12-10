@@ -31,7 +31,7 @@ interface GeminiResponse {
 
 export class ProcessingHelper {
   private deps: IProcessingHelperDeps
-  private screenshotHelper: ScreenshotHelper
+  private screenshotHelper: ScreenshotHelper | null = null
   private geminiApiKey: string | null = null
   private groqClient: OpenAI | null = null
 
@@ -44,7 +44,11 @@ export class ProcessingHelper {
 
   constructor(deps: IProcessingHelperDeps) {
     this.deps = deps
-    this.screenshotHelper = deps.getScreenshotHelper()
+    try {
+      this.screenshotHelper = deps.getScreenshotHelper()
+    } catch (error) {
+      console.error('Error getting screenshot helper:', error)
+    }
     this.initializeAIClients()
 
     configHelper.on('config-updated', () => {
@@ -53,61 +57,77 @@ export class ProcessingHelper {
   }
 
   private initializeAIClients(): void {
-    const config = configHelper.loadConfig()
+    try {
+      const config = configHelper.loadConfig()
 
-    // Initialize Groq client if API key exists
-    if (config.groqApiKey) {
-      this.groqClient = new OpenAI({
-        apiKey: config.groqApiKey,
-        baseURL: "https://api.groq.com/openai/v1",
-        timeout: 120000,
-        maxRetries: 2
-      })
-      console.log("Groq client initialized")
-    } else {
+      // Initialize Groq client if API key exists
+      if (config.groqApiKey) {
+        this.groqClient = new OpenAI({
+          apiKey: config.groqApiKey,
+          baseURL: "https://api.groq.com/openai/v1",
+          timeout: 120000,
+          maxRetries: 2
+        })
+        console.log("Groq client initialized")
+      } else {
+        this.groqClient = null
+      }
+
+      // Initialize Gemini API key if exists
+      if (config.geminiApiKey) {
+        this.geminiApiKey = config.geminiApiKey
+        console.log("Gemini API key set")
+      } else {
+        this.geminiApiKey = null
+      }
+    } catch (error) {
+      console.error('Error initializing AI clients:', error)
       this.groqClient = null
-    }
-
-    // Initialize Gemini API key if exists
-    if (config.geminiApiKey) {
-      this.geminiApiKey = config.geminiApiKey
-      console.log("Gemini API key set")
-    } else {
       this.geminiApiKey = null
     }
   }
 
   public cancelOngoingRequests(): void {
-    if (this.currentAbortController) {
-      this.currentAbortController.abort()
+    try {
+      if (this.currentAbortController) {
+        this.currentAbortController.abort()
+        this.currentAbortController = null
+      }
+    } catch (error) {
+      console.error('Error canceling ongoing requests:', error)
       this.currentAbortController = null
     }
   }
 
   // MAIN PROCESSING - Single API call
   public async processScreenshots() {
-    const view = this.deps.getView()
-    const mainQueue = this.deps.getScreenshotQueue()
-    const extraQueue = this.deps.getExtraScreenshotQueue()
+    try {
+      const view = this.deps.getView()
+      const mainQueue = this.deps.getScreenshotQueue() || []
+      const extraQueue = this.deps.getExtraScreenshotQueue() || []
 
-    console.log(`processScreenshots called - View: ${view}, Main queue: ${mainQueue.length}, Extra queue: ${extraQueue.length}`)
+      console.log(`processScreenshots called - View: ${view}, Main queue: ${mainQueue.length}, Extra queue: ${extraQueue.length}`)
 
-    // If we have screenshots in main queue, it's a new question (even if view is "solutions")
-    if (mainQueue.length > 0) {
-      console.log("Processing main queue (new question)")
-      // Reset to queue view for new question
-      this.deps.setView("queue")
-      return await this.processInitialQuestion()
+      // If we have screenshots in main queue, it's a new question (even if view is "solutions")
+      if (mainQueue.length > 0) {
+        console.log("Processing main queue (new question)")
+        // Reset to queue view for new question
+        this.deps.setView("queue")
+        return await this.processInitialQuestion()
+      }
+
+      // If we're in solutions view and have extra screenshots, it's debugging
+      if (view === "solutions" && extraQueue.length > 0) {
+        console.log("Processing extra queue (debugging)")
+        return await this.processDebugging()
+      }
+
+      console.log("No screenshots to process")
+      return { success: false, error: "No screenshots to process" }
+    } catch (error: any) {
+      console.error('Error in processScreenshots:', error)
+      return { success: false, error: error.message || "Processing failed" }
     }
-
-    // If we're in solutions view and have extra screenshots, it's debugging
-    if (view === "solutions" && extraQueue.length > 0) {
-      console.log("Processing extra queue (debugging)")
-      return await this.processDebugging()
-    }
-
-    console.log("No screenshots to process")
-    return { success: false, error: "No screenshots to process" }
   }
 
   private async processInitialQuestion() {
@@ -252,26 +272,55 @@ CSS Best Practices:
 - CSS variables for colors/spacing (if appropriate)
 - Consistent spacing units (rem, em, or px)
 
-STEP 4: BOOTSTRAP IMPLEMENTATION (if required)
+STEP 4: RESPONSIVE DESIGN (BEGINNER-FRIENDLY)
+ALWAYS make websites responsive using SIMPLE concepts:
+- Use percentage widths: width: 100%, width: 50%
+- Use max-width for containers: max-width: 1200px
+- Use flexbox for layouts: display: flex, flex-wrap: wrap
+- Use media queries for breakpoints:
+  @media (max-width: 768px) { /* Mobile */ }
+  @media (min-width: 769px) { /* Desktop */ }
+- Make images responsive: img { max-width: 100%; height: auto; }
+- Use relative units: em, rem, % (avoid fixed px for everything)
+
+STEP 5: BOOTSTRAP IMPLEMENTATION (if required)
 - Include ALL Bootstrap utility classes mentioned in test cases
-- Common classes: container, row, col-*, d-flex, justify-content-*, align-items-*
-- Responsive classes: d-none, d-md-block, col-md-6, etc.
-- Text utilities: text-center, text-left, font-weight-bold
-- Spacing: m-*, p-*, mt-*, mb-*, etc.
+- Layout: container, row, col-*, col-md-*, col-lg-*
+- Display: d-flex, d-none, d-block, d-md-flex, d-md-none
+- Alignment: justify-content-*, align-items-*, text-center
+- Spacing: m-*, p-*, mt-*, mb-*, mx-auto
+- Colors: bg-primary, bg-secondary, bg-success, bg-danger, bg-warning, bg-info, text-white, text-dark
+- Buttons: btn, btn-primary, btn-secondary, btn-lg, btn-sm
 - Write Bootstrap-like CSS inline in <style> tag (NO CDN links)
 
-STEP 5: DESIGN MATCHING (if image provided)
-- Colors: Extract EXACT colors from image (use color picker mentally)
+STEP 6: COLORS (Simple & Beginner-Friendly)
+- If specific colors mentioned: Use those EXACT colors (#007bff, rgb(255,0,0), etc.)
+- If Bootstrap mentioned: Use Bootstrap color classes (bg-primary, bg-secondary, text-white, etc.)
+- If no colors specified: Use simple, professional colors:
+  * Primary: #007bff (blue)
+  * Secondary: #6c757d (gray)
+  * Success: #28a745 (green)
+  * Danger: #dc3545 (red)
+  * Warning: #ffc107 (yellow)
+  * Info: #17a2b8 (cyan)
+  * Light: #f8f9fa (light gray)
+  * Dark: #343a40 (dark gray)
+
+STEP 7: DESIGN MATCHING (if image provided)
+- Colors: Extract EXACT colors from image OR use Bootstrap colors if appropriate
 - Spacing: Match padding, margins, gaps exactly
 - Typography: Match font sizes, weights, line heights
 - Layout: Match exact positioning, alignment, structure
 - Images: Use placeholder images with correct dimensions
-- Responsive: Make it work on all screen sizes if shown
+- Responsive: ALWAYS make it work on mobile and desktop
 
-STEP 6: VALIDATION CHECKLIST
+STEP 8: VALIDATION CHECKLIST
+✓ Website is RESPONSIVE? (works on mobile and desktop)
+✓ Uses SIMPLE beginner concepts? (flexbox, percentages, media queries)
 ✓ All test case requirements included?
 ✓ All specified elements present? (count them!)
 ✓ Bootstrap classes all included? (if required)
+✓ Colors appropriate? (specified, Bootstrap, or simple defaults)
 ✓ Design matches image? (if provided)
 ✓ Industry standard naming? (if not specified)
 ✓ All CSS inside <style> tag?
@@ -287,25 +336,31 @@ Format:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solution</title>
     <style>
-        /* ALL CSS here - Bootstrap-like styles if Bootstrap required */
-        /* Use industry standard naming: .header, .nav, .hero, .card, etc. */
-        /* Match design image EXACTLY if provided */
-        /* Satisfy ALL test case requirements */
+        /* RESPONSIVE CSS - Use beginner-friendly concepts */
+        /* Flexbox, percentages, media queries, max-width */
+        /* Bootstrap colors if appropriate: bg-primary, text-white, etc. */
+        /* Make images responsive: max-width: 100%; height: auto; */
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        /* Your CSS here */
     </style>
 </head>
 <body>
-    <!-- Semantic HTML structure -->
+    <!-- RESPONSIVE HTML - Works on mobile and desktop -->
+    <!-- Use semantic tags: header, nav, main, section, footer -->
     <!-- ALL required elements (count them!) -->
     <!-- ALL Bootstrap classes (if required) -->
-    <!-- Match design image EXACTLY (if provided) -->
 </body>
 </html>
 
 REMEMBER:
+- ALWAYS make websites RESPONSIVE (mobile + desktop)
+- Use SIMPLE beginner concepts (flexbox, %, media queries)
 - Instructions are LAW - follow them EXACTLY
 - Test cases are REQUIREMENTS - satisfy ALL of them
 - Design images are BLUEPRINTS - match them PIXEL-PERFECT
-- Bootstrap classes are MANDATORY - include ALL mentioned
+- Bootstrap colors OK: bg-primary, bg-secondary, text-white, etc.
 - Industry standards are DEFAULT - use them unless told otherwise
 
 AUTO-DETECT the question type and respond accordingly. User's preferred language: ${language}
@@ -313,16 +368,19 @@ AUTO-DETECT the question type and respond accordingly. User's preferred language
 🔴 CRITICAL REMINDERS - READ BEFORE RESPONDING 🔴
 
 WEB DEVELOPMENT:
-1. FOLLOW INSTRUCTIONS EXACTLY - Every word matters
-2. TEST CASES = REQUIREMENTS - Include ALL mentioned elements/classes
-3. DESIGN IMAGES = BLUEPRINTS - Match colors, spacing, fonts EXACTLY
-4. BOOTSTRAP - If mentioned, include ALL classes (container, row, col-*, d-*, text-*, etc.)
-5. ELEMENT COUNT - "3 images" means EXACTLY 3 <img> tags, not 2, not 4
-6. NAMING - Use industry standards (BEM, semantic names, kebab-case) unless specified
-7. CSS LOCATION - ALL CSS inside <style> tag, NO external links
-8. SEMANTIC HTML - Use <header>, <nav>, <main>, <section>, <footer>
-9. ACCESSIBILITY - Include alt attributes, aria labels, proper structure
-10. VALIDATION - Before responding, check: ✓ All requirements? ✓ All classes? ✓ Design match?
+1. ⚡ RESPONSIVE ALWAYS - Use flexbox, %, media queries (beginner-friendly)
+2. 🎨 COLORS - Use specified colors, Bootstrap colors (bg-primary, text-white), or simple defaults
+3. 📱 MOBILE-FIRST - Works on phone, tablet, desktop
+4. 📋 FOLLOW INSTRUCTIONS EXACTLY - Every word matters
+5. ✅ TEST CASES = REQUIREMENTS - Include ALL mentioned elements/classes
+6. 🎯 DESIGN IMAGES = BLUEPRINTS - Match colors, spacing, fonts EXACTLY
+7. 🅱️ BOOTSTRAP - If mentioned, include ALL classes (container, row, col-*, bg-primary, etc.)
+8. 🔢 ELEMENT COUNT - "3 images" means EXACTLY 3 <img> tags, not 2, not 4
+9. 🏷️ NAMING - Use industry standards (semantic names, kebab-case) unless specified
+10. 📍 CSS LOCATION - ALL CSS inside <style> tag, NO external links
+11. 🏗️ SEMANTIC HTML - Use <header>, <nav>, <main>, <section>, <footer>
+12. ♿ ACCESSIBILITY - Include alt attributes, aria labels, proper structure
+13. ✔️ VALIDATION - Before responding, check: ✓ Responsive? ✓ All requirements? ✓ All classes?
 
 PYTHON:
 - Minimal code - one-liners preferred
@@ -426,7 +484,9 @@ GENERAL:
       }
 
       // Clear the main queue after successful processing
-      this.screenshotHelper.clearMainScreenshotQueue()
+      if (this.screenshotHelper) {
+        this.screenshotHelper.clearMainScreenshotQueue()
+      }
       
       this.deps.setView("solutions")
       console.log("Processing completed successfully, view set to solutions")
@@ -603,7 +663,9 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
       }
 
       // Clear the extra queue after successful debugging
-      this.screenshotHelper.clearExtraScreenshotQueue()
+      if (this.screenshotHelper) {
+        this.screenshotHelper.clearExtraScreenshotQueue()
+      }
 
       return { success: true, data: parsedResponse }
 

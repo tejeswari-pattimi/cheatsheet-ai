@@ -1,5 +1,6 @@
 import SubscribedApp from "./_pages/SubscribedApp"
 import { UpdateNotification } from "./components/UpdateNotification"
+import { ErrorBoundary } from "./components/ErrorBoundary"
 import {
   QueryClient,
   QueryClientProvider
@@ -16,17 +17,19 @@ import { ToastContext } from "./contexts/toast"
 import { WelcomeScreen } from "./components/WelcomeScreen"
 import { SettingsDialog } from "./components/Settings/SettingsDialog"
 
-// Create a React Query client
+// Create a React Query client with better error handling
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 0,
       gcTime: Infinity,
-      retry: 1,
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
       refetchOnWindowFocus: false
     },
     mutations: {
-      retry: 1
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000)
     }
   }
 })
@@ -247,19 +250,20 @@ function App() {
   }, [showToast])
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <ToastContext.Provider value={{ showToast }}>
-          <div className="relative">
-            {isInitialized ? (
-              hasApiKey ? (
-                <SubscribedApp
-                  credits={credits}
-                  currentLanguage={currentLanguage}
-                  setLanguage={updateLanguage}
-                />
-              ) : (
-                <WelcomeScreen onOpenSettings={handleOpenSettings} />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <ToastContext.Provider value={{ showToast }}>
+            <div className="relative">
+              {isInitialized ? (
+                hasApiKey ? (
+                  <SubscribedApp
+                    credits={credits}
+                    currentLanguage={currentLanguage}
+                    setLanguage={updateLanguage}
+                  />
+                ) : (
+                  <WelcomeScreen onOpenSettings={handleOpenSettings} />
               )
             ) : (
               <div className="min-h-screen bg-black flex items-center justify-center">
@@ -295,6 +299,7 @@ function App() {
         </ToastContext.Provider>
       </ToastProvider>
     </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
 

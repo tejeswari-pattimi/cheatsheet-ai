@@ -5,20 +5,46 @@ import { randomBytes } from "crypto"
 import { IIpcHandlerDeps } from "./main"
 import { configHelper } from "./ConfigHelper"
 
+// Helper to safely send events to window
+function safeSend(mainWindow: Electron.BrowserWindow | null, channel: string, ...args: any[]): void {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(channel, ...args)
+    }
+  } catch (error) {
+    console.error(`Error sending ${channel} to window:`, error)
+  }
+}
+
 export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   console.log("Initializing IPC handlers")
 
   // Configuration handlers
   ipcMain.handle("get-config", () => {
-    return configHelper.loadConfig();
+    try {
+      return configHelper.loadConfig();
+    } catch (error) {
+      console.error('Error in get-config handler:', error);
+      return {};
+    }
   })
 
   ipcMain.handle("update-config", (_event, updates) => {
-    return configHelper.updateConfig(updates);
+    try {
+      return configHelper.updateConfig(updates);
+    } catch (error) {
+      console.error('Error in update-config handler:', error);
+      return configHelper.loadConfig();
+    }
   })
 
   ipcMain.handle("check-api-key", () => {
-    return configHelper.hasApiKey();
+    try {
+      return configHelper.hasApiKey();
+    } catch (error) {
+      console.error('Error in check-api-key handler:', error);
+      return false;
+    }
   })
   
   ipcMain.handle("validate-api-key", async (_event, apiKey, provider?: "groq" | "gemini") => {
@@ -53,35 +79,34 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
 
   // Credits handlers
   ipcMain.handle("set-initial-credits", async (_event, credits: number) => {
-    const mainWindow = deps.getMainWindow()
-    if (!mainWindow) return
-
     try {
+      const mainWindow = deps.getMainWindow()
+      if (!mainWindow || mainWindow.isDestroyed()) return
+
       // Set the credits in a way that ensures atomicity
       await mainWindow.webContents.executeJavaScript(
         `window.__CREDITS__ = ${credits}`
       )
-      mainWindow.webContents.send("credits-updated", credits)
+      safeSend(mainWindow, "credits-updated", credits)
     } catch (error) {
       console.error("Error setting initial credits:", error)
-      throw error
     }
   })
 
   ipcMain.handle("decrement-credits", async () => {
-    const mainWindow = deps.getMainWindow()
-    if (!mainWindow) return
-
     try {
+      const mainWindow = deps.getMainWindow()
+      if (!mainWindow || mainWindow.isDestroyed()) return
+
       const currentCredits = await mainWindow.webContents.executeJavaScript(
         "window.__CREDITS__"
       )
-      if (currentCredits > 0) {
+      if (typeof currentCredits === 'number' && currentCredits > 0) {
         const newCredits = currentCredits - 1
         await mainWindow.webContents.executeJavaScript(
           `window.__CREDITS__ = ${newCredits}`
         )
-        mainWindow.webContents.send("credits-updated", newCredits)
+        safeSend(mainWindow, "credits-updated", newCredits)
       }
     } catch (error) {
       console.error("Error decrementing credits:", error)
@@ -143,53 +168,75 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
       const currentView = deps.getView()
 
       if (currentView === "queue") {
-        const queue = deps.getScreenshotQueue()
+        const queue = deps.getScreenshotQueue() || []
         previews = await Promise.all(
-          queue.map(async (path) => ({
-            path,
-            preview: await deps.getImagePreview(path)
-          }))
+          queue.map(async (path) => {
+            try {
+              return {
+                path,
+                preview: await deps.getImagePreview(path)
+              }
+            } catch (err) {
+              console.error(`Error getting preview for ${path}:`, err)
+              return { path, preview: '' }
+            }
+          })
         )
       } else {
-        const extraQueue = deps.getExtraScreenshotQueue()
+        const extraQueue = deps.getExtraScreenshotQueue() || []
         previews = await Promise.all(
-          extraQueue.map(async (path) => ({
-            path,
-            preview: await deps.getImagePreview(path)
-          }))
+          extraQueue.map(async (path) => {
+            try {
+              return {
+                path,
+                preview: await deps.getImagePreview(path)
+              }
+            } catch (err) {
+              console.error(`Error getting preview for ${path}:`, err)
+              return { path, preview: '' }
+            }
+          })
         )
       }
 
-      return previews
+      return previews.filter(p => p.preview) // Filter out failed previews
     } catch (error) {
       console.error("Error getting screenshots:", error)
-      throw error
+      return []
     }
   })
 
   // Screenshot trigger handlers
   ipcMain.handle("trigger-screenshot", async () => {
-    const mainWindow = deps.getMainWindow()
-    if (mainWindow) {
-      try {
-        const screenshotPath = await deps.takeScreenshot()
-        const preview = await deps.getImagePreview(screenshotPath)
-        mainWindow.webContents.send("screenshot-taken", {
-          path: screenshotPath,
-          preview
-        })
-        return { success: true }
-      } catch (error) {
-        console.error("Error triggering screenshot:", error)
-        return { error: "Failed to trigger screenshot" }
+    try {
+      const mainWindow = deps.getMainWindow()
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        return { error: "No main window available" }
       }
+      
+      const screenshotPath = await deps.takeScreenshot()
+      if (!screenshotPath) {
+        return { error: "Failed to take screenshot" }
+      }
+      
+      const preview = await deps.getImagePreview(screenshotPath)
+      safeSend(mainWindow, "screenshot-taken", {
+        path: screenshotPath,
+        preview
+      })
+      return { success: true }
+    } catch (error) {
+      console.error("Error triggering screenshot:", error)
+      return { error: "Failed to trigger screenshot" }
     }
-    return { error: "No main window available" }
   })
 
   ipcMain.handle("take-screenshot", async () => {
     try {
       const screenshotPath = await deps.takeScreenshot()
+      if (!screenshotPath) {
+        return { error: "Failed to take screenshot" }
+      }
       const preview = await deps.getImagePreview(screenshotPath)
       return { path: screenshotPath, preview }
     } catch (error) {

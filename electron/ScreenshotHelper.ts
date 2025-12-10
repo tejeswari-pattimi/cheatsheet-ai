@@ -51,13 +51,14 @@ export class ScreenshotHelper {
     ];
 
     for (const dir of directories) {
-      if (!fs.existsSync(dir)) {
-        try {
+      try {
+        if (!fs.existsSync(dir)) {
           fs.mkdirSync(dir, { recursive: true });
           console.log(`Created directory: ${dir}`);
-        } catch (err) {
-          console.error(`Error creating directory ${dir}:`, err);
         }
+      } catch (err) {
+        console.error(`Error creating directory ${dir}:`, err);
+        // Continue with other directories even if one fails
       }
     }
   }
@@ -133,24 +134,31 @@ export class ScreenshotHelper {
 
   public clearQueues(): void {
     // Clear screenshotQueue
-    this.screenshotQueue.forEach((screenshotPath) => {
-      fs.unlink(screenshotPath, (err) => {
-        if (err)
-          console.error(`Error deleting screenshot at ${screenshotPath}:`, err);
-      });
-    });
+    for (const screenshotPath of this.screenshotQueue) {
+      try {
+        if (fs.existsSync(screenshotPath)) {
+          fs.unlink(screenshotPath, (err) => {
+            if (err) console.error(`Error deleting screenshot at ${screenshotPath}:`, err);
+          });
+        }
+      } catch (err) {
+        console.error(`Error checking/deleting screenshot at ${screenshotPath}:`, err);
+      }
+    }
     this.screenshotQueue = [];
 
     // Clear extraScreenshotQueue
-    this.extraScreenshotQueue.forEach((screenshotPath) => {
-      fs.unlink(screenshotPath, (err) => {
-        if (err)
-          console.error(
-            `Error deleting extra screenshot at ${screenshotPath}:`,
-            err
-          );
-      });
-    });
+    for (const screenshotPath of this.extraScreenshotQueue) {
+      try {
+        if (fs.existsSync(screenshotPath)) {
+          fs.unlink(screenshotPath, (err) => {
+            if (err) console.error(`Error deleting extra screenshot at ${screenshotPath}:`, err);
+          });
+        }
+      } catch (err) {
+        console.error(`Error checking/deleting extra screenshot at ${screenshotPath}:`, err);
+      }
+    }
     this.extraScreenshotQueue = [];
   }
 
@@ -166,13 +174,18 @@ export class ScreenshotHelper {
       // For macOS and Linux, use buffer directly
       console.log("Taking screenshot on non-Windows platform");
       const buffer = await screenshot({ format: "png" });
+      
+      if (!buffer || buffer.length === 0) {
+        throw new Error("Screenshot capture returned empty buffer");
+      }
+      
       console.log(
         `Screenshot captured successfully, size: ${buffer.length} bytes`
       );
       return buffer;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error capturing screenshot:", error);
-      throw new Error(`Failed to capture screenshot: ${error.message}`);
+      throw new Error(`Failed to capture screenshot: ${error?.message || 'Unknown error'}`);
     }
   }
 
@@ -387,6 +400,10 @@ export class ScreenshotHelper {
     path: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      if (!path) {
+        return { success: false, error: "Invalid path" };
+      }
+      
       if (fs.existsSync(path)) {
         await fs.promises.unlink(path);
       }
@@ -401,9 +418,9 @@ export class ScreenshotHelper {
         );
       }
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting file:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message || 'Unknown error' };
     }
   }
 

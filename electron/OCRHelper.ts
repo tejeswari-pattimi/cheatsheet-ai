@@ -91,10 +91,17 @@ export class OCRHelper {
     }
 
     if (!this.worker) {
-      throw new Error('OCR worker failed to initialize');
+      console.error('OCR worker failed to initialize');
+      return ''; // Return empty string instead of throwing
     }
 
     try {
+      // Check if file exists
+      if (!fs.existsSync(imagePath)) {
+        console.error(`Image file not found: ${imagePath}`);
+        return '';
+      }
+
       const startTime = Date.now();
       
       // Preprocess image for faster OCR
@@ -117,7 +124,7 @@ export class OCRHelper {
       return text.trim();
     } catch (error) {
       console.error('OCR extraction failed:', error);
-      throw error;
+      return ''; // Return empty string instead of throwing
     }
   }
 
@@ -125,22 +132,40 @@ export class OCRHelper {
    * Extract text from multiple screenshots - PARALLEL PROCESSING
    */
   public async extractTextFromMultiple(imagePaths: string[]): Promise<string> {
-    // Process all images in parallel for maximum speed
-    const textPromises = imagePaths.map(imagePath => this.extractText(imagePath));
-    const texts = await Promise.all(textPromises);
+    if (!imagePaths || imagePaths.length === 0) {
+      return '';
+    }
     
-    return texts.join('\n\n---\n\n');
+    try {
+      // Process all images in parallel for maximum speed
+      const textPromises = imagePaths.map(imagePath => this.extractText(imagePath));
+      const texts = await Promise.all(textPromises);
+      
+      // Filter out empty results
+      const validTexts = texts.filter(text => text && text.trim().length > 0);
+      
+      return validTexts.join('\n\n---\n\n');
+    } catch (error) {
+      console.error('Error extracting text from multiple images:', error);
+      return '';
+    }
   }
 
   /**
    * Cleanup worker
    */
   public async terminate(): Promise<void> {
-    if (this.worker) {
-      await this.worker.terminate();
+    try {
+      if (this.worker) {
+        await this.worker.terminate();
+        this.worker = null;
+        this.isInitialized = false;
+        console.log('OCR worker terminated');
+      }
+    } catch (error) {
+      console.error('Error terminating OCR worker:', error);
       this.worker = null;
       this.isInitialized = false;
-      console.log('OCR worker terminated');
     }
   }
 }

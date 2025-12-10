@@ -9,6 +9,17 @@ import { initAutoUpdater } from "./autoUpdater"
 import { configHelper } from "./ConfigHelper"
 import * as dotenv from "dotenv"
 
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error)
+  // Log but don't crash - allow app to continue if possible
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  // Log but don't crash - allow app to continue if possible
+})
+
 // Constants
 const isDev = process.env.NODE_ENV === "development"
 
@@ -428,9 +439,16 @@ function handleWindowClosed(): void {
   state.windowSize = null
 }
 
+// Safe window operation helper
+function isWindowValid(window: BrowserWindow | null): window is BrowserWindow {
+  return window !== null && !window.isDestroyed()
+}
+
 // Window visibility functions
 function hideMainWindow(): void {
-  if (!state.mainWindow?.isDestroyed()) {
+  try {
+    if (!isWindowValid(state.mainWindow)) return
+    
     const bounds = state.mainWindow.getBounds();
     state.windowPosition = { x: bounds.x, y: bounds.y };
     state.windowSize = { width: bounds.width, height: bounds.height };
@@ -438,11 +456,15 @@ function hideMainWindow(): void {
     state.mainWindow.setOpacity(0);
     state.isWindowVisible = false;
     console.log('Window hidden, opacity set to 0');
+  } catch (error) {
+    console.error('Error hiding main window:', error);
   }
 }
 
 function showMainWindow(): void {
-  if (!state.mainWindow?.isDestroyed()) {
+  try {
+    if (!isWindowValid(state.mainWindow)) return
+    
     if (state.windowPosition && state.windowSize) {
       state.mainWindow.setBounds({
         ...state.windowPosition,
@@ -460,6 +482,8 @@ function showMainWindow(): void {
     state.mainWindow.setOpacity(1); // Then set opacity to 1 after showing
     state.isWindowVisible = true;
     console.log('Window shown with showInactive(), opacity set to 1');
+  } catch (error) {
+    console.error('Error showing main window:', error);
   }
 }
 
@@ -530,7 +554,15 @@ function centerWindow(): void {
 
 // Window dimension functions
 function setWindowDimensions(width: number, height: number): void {
-  if (!state.mainWindow?.isDestroyed()) {
+  try {
+    if (!isWindowValid(state.mainWindow)) return
+    
+    // Validate input dimensions
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      console.warn('Invalid window dimensions:', { width, height })
+      return
+    }
+    
     const [currentX, currentY] = state.mainWindow.getPosition()
     const primaryDisplay = screen.getPrimaryDisplay()
     const workArea = primaryDisplay.workAreaSize
@@ -539,9 +571,11 @@ function setWindowDimensions(width: number, height: number): void {
     state.mainWindow.setBounds({
       x: Math.min(currentX, workArea.width - maxWidth),
       y: currentY,
-      width: Math.min(width + 32, maxWidth),
-      height: Math.ceil(height)
+      width: Math.min(Math.max(width + 32, 400), maxWidth),
+      height: Math.max(Math.ceil(height), 300)
     })
+  } catch (error) {
+    console.error('Error setting window dimensions:', error)
   }
 }
 
@@ -564,22 +598,37 @@ function loadEnvVariables() {
 async function initializeApp() {
   try {
     // Set custom cache directory to prevent permission issues
-    const appDataPath = path.join(app.getPath('appData'), 'cheatsheet-ai')
+    let appDataPath: string
+    try {
+      appDataPath = path.join(app.getPath('appData'), 'cheatsheet-ai')
+    } catch (pathError) {
+      console.error('Error getting appData path, using fallback:', pathError)
+      appDataPath = path.join(process.cwd(), 'cheatsheet-ai-data')
+    }
+    
     const sessionPath = path.join(appDataPath, 'session')
     const tempPath = path.join(appDataPath, 'temp')
     const cachePath = path.join(appDataPath, 'cache')
     
     // Create directories if they don't exist
     for (const dir of [appDataPath, sessionPath, tempPath, cachePath]) {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
+      try {
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true })
+        }
+      } catch (mkdirError) {
+        console.error(`Error creating directory ${dir}:`, mkdirError)
       }
     }
     
-    app.setPath('userData', appDataPath)
-    app.setPath('sessionData', sessionPath)      
-    app.setPath('temp', tempPath)
-    app.setPath('cache', cachePath)
+    try {
+      app.setPath('userData', appDataPath)
+      app.setPath('sessionData', sessionPath)      
+      app.setPath('temp', tempPath)
+      app.setPath('cache', cachePath)
+    } catch (setPathError) {
+      console.error('Error setting app paths:', setPathError)
+    }
       
     loadEnvVariables()
     

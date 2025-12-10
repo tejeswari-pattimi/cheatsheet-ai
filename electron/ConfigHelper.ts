@@ -79,7 +79,30 @@ export class ConfigHelper extends EventEmitter {
     try {
       if (fs.existsSync(this.configPath)) {
         const configData = fs.readFileSync(this.configPath, 'utf8');
-        const config = JSON.parse(configData);
+        
+        // Handle empty file
+        if (!configData || configData.trim() === '') {
+          console.warn('Config file is empty, using defaults');
+          this.saveConfig(this.defaultConfig);
+          return { ...this.defaultConfig };
+        }
+        
+        let config: any;
+        try {
+          config = JSON.parse(configData);
+        } catch (parseError) {
+          console.error('Error parsing config JSON:', parseError);
+          // Backup corrupted file and create new one
+          try {
+            const backupPath = this.configPath + '.backup';
+            fs.writeFileSync(backupPath, configData);
+            console.log('Backed up corrupted config to:', backupPath);
+          } catch (backupErr) {
+            console.error('Error backing up config:', backupErr);
+          }
+          this.saveConfig(this.defaultConfig);
+          return { ...this.defaultConfig };
+        }
         
         // Ensure mode is valid
         if (config.mode !== "mcq" && config.mode !== "general") {
@@ -102,10 +125,10 @@ export class ConfigHelper extends EventEmitter {
       
       // If no config exists, create a default one
       this.saveConfig(this.defaultConfig);
-      return this.defaultConfig;
+      return { ...this.defaultConfig };
     } catch (err) {
       console.error("Error loading config:", err);
-      return this.defaultConfig;
+      return { ...this.defaultConfig };
     }
   }
 
@@ -114,15 +137,35 @@ export class ConfigHelper extends EventEmitter {
    */
   public saveConfig(config: Config): void {
     try {
+      // Validate config object
+      if (!config || typeof config !== 'object') {
+        console.error('Invalid config object provided to saveConfig');
+        return;
+      }
+      
       // Ensure the directory exists
       const configDir = path.dirname(this.configPath);
       if (!fs.existsSync(configDir)) {
         fs.mkdirSync(configDir, { recursive: true });
       }
-      // Write the config file
-      fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
+      
+      // Write the config file atomically (write to temp, then rename)
+      const tempPath = this.configPath + '.tmp';
+      const configString = JSON.stringify(config, null, 2);
+      
+      fs.writeFileSync(tempPath, configString, 'utf8');
+      
+      // Rename temp file to actual config file (atomic on most systems)
+      fs.renameSync(tempPath, this.configPath);
     } catch (err) {
       console.error("Error saving config:", err);
+      
+      // Fallback: try direct write if atomic write fails
+      try {
+        fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf8');
+      } catch (fallbackErr) {
+        console.error('Fallback config save also failed:', fallbackErr);
+      }
     }
   }
 
@@ -131,6 +174,11 @@ export class ConfigHelper extends EventEmitter {
    */
   public updateConfig(updates: Partial<Config>): Config {
     try {
+      if (!updates || typeof updates !== 'object') {
+        console.error('Invalid updates provided to updateConfig');
+        return this.loadConfig();
+      }
+      
       const currentConfig = this.loadConfig();
       
       // Sanitize model selections in the updates
@@ -148,13 +196,17 @@ export class ConfigHelper extends EventEmitter {
       if (updates.groqApiKey !== undefined || updates.geminiApiKey !== undefined || 
           updates.groqModel !== undefined || updates.geminiModel !== undefined || 
           updates.mode !== undefined || updates.language !== undefined) {
-        this.emit('config-updated', newConfig);
+        try {
+          this.emit('config-updated', newConfig);
+        } catch (emitError) {
+          console.error('Error emitting config-updated event:', emitError);
+        }
       }
       
       return newConfig;
     } catch (error) {
       console.error('Error updating config:', error);
-      return this.defaultConfig;
+      return this.loadConfig();
     }
   }
 
@@ -198,8 +250,18 @@ export class ConfigHelper extends EventEmitter {
    * Get the stored opacity value
    */
   public getOpacity(): number {
-    const config = this.loadConfig();
-    return config.opacity !== undefined ? config.opacity : 1.0;
+    try {
+      const config = this.loadConfig();
+      const opacity = config.opacity;
+      // Ensure opacity is a valid number between 0.1 and 1.0
+      if (typeof opacity === 'number' && !isNaN(opacity) && opacity >= 0.1 && opacity <= 1.0) {
+        return opacity;
+      }
+      return 1.0;
+    } catch (error) {
+      console.error('Error getting opacity:', error);
+      return 1.0;
+    }
   }
 
   /**

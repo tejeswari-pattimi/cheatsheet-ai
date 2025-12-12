@@ -23,6 +23,7 @@ export class ShortcutsHelper {
   private isPaused: boolean = false
   private typingSpeed: number = 75 // Default speed in ms
   private keypressListener: any = null
+  private processedClipboard: string = "" // Store processed clipboard for Ctrl+Shift+V
 
   constructor(deps: IShortcutsHelperDeps) {
     this.deps = deps
@@ -95,31 +96,10 @@ export class ShortcutsHelper {
     }
   }
 
-  // Remove common base indentation while preserving relative indentation
-  // This prevents double-indentation in IDEs
-  private removeLeadingIndentation(text: string): string {
-    const lines = text.split('\n')
-    
-    // Find the minimum indentation (excluding empty lines)
-    const nonEmptyLines = lines.filter(line => line.trim().length > 0)
-    if (nonEmptyLines.length === 0) return text
-    
-    const minIndent = Math.min(...nonEmptyLines.map(line => {
-      const match = line.match(/^(\s*)/)
-      return match ? match[1].length : 0
-    }))
-    
-    // Remove only the common base indentation from all lines
-    // This preserves relative indentation (nested code stays nested)
-    return lines.map(line => {
-      if (line.trim().length === 0) {
-        return '' // Empty lines become truly empty
-      }
-      if (line.length >= minIndent) {
-        return line.slice(minIndent)
-      }
-      return line
-    }).join('\n')
+  // Public method to store processed clipboard from renderer
+  public setProcessedClipboard(text: string): void {
+    this.processedClipboard = text
+    console.log(`Stored ${text.length} characters in processed clipboard`)
   }
 
   private adjustOpacity(delta: number): void {
@@ -523,7 +503,7 @@ export class ShortcutsHelper {
 
 
 
-    // Ctrl+Shift+V: Type clipboard content with faster speed
+    // Ctrl+Shift+V: Type clipboard content line by line with NO indentation
     safeRegister("CommandOrControl+Shift+V", async () => {
       console.log("Ctrl+Shift+V pressed. Typing out clipboard content...")
 
@@ -533,18 +513,22 @@ export class ShortcutsHelper {
       }
 
       try {
-        let clipboardText = clipboard.readText()
+        // Use processed clipboard if available, otherwise fall back to regular clipboard
+        let clipboardText = this.processedClipboard || clipboard.readText()
 
         if (!clipboardText) {
           console.log("Clipboard is empty")
           return
         }
 
-        // Remove leading indentation from code to prevent double-indentation in IDEs
-        // IDEs auto-indent when you press Enter, so we strip existing indentation
-        clipboardText = this.removeLeadingIndentation(clipboardText)
+        console.log(`Using ${this.processedClipboard ? 'processed' : 'regular'} clipboard`)
 
-        console.log(`Typing ${clipboardText.length} characters from clipboard`)
+        // Split into lines (already processed if from Ctrl+Shift+C, otherwise process now)
+        const lines = this.processedClipboard 
+          ? clipboardText.split('\n')  // Already processed
+          : clipboardText.split('\n').map(line => line.trimStart())  // Process now
+        
+        console.log(`Processing ${lines.length} lines from clipboard`)
         this.isTyping = true
         this.shouldStopTyping = false
 
@@ -574,11 +558,11 @@ export class ShortcutsHelper {
         // Configure keyboard with current typing speed
         keyboard.config.autoDelayMs = this.typingSpeed
 
-        // Type character by character to allow interruption and pause
-        for (let i = 0; i < clipboardText.length; i++) {
+        // Type line by line
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
           // Check if should stop
           if (this.shouldStopTyping) {
-            console.log(`Typing stopped at character ${i + 1}/${clipboardText.length}`)
+            console.log(`Typing stopped at line ${lineIndex + 1}/${lines.length}`)
             break
           }
           
@@ -587,16 +571,27 @@ export class ShortcutsHelper {
             await new Promise(resolve => setTimeout(resolve, 100))
           }
           
-          // Type character if not stopped
-          if (!this.shouldStopTyping) {
-            const char = clipboardText[i]
+          if (this.shouldStopTyping) break
+          
+          const line = lines[lineIndex]
+          
+          // Type each character in the line (with NO leading spaces)
+          for (let charIndex = 0; charIndex < line.length; charIndex++) {
+            if (this.shouldStopTyping) break
             
-            // Handle newlines by pressing Enter key instead of typing \n literal
-            if (char === '\n') {
-              await keyboard.type(Key.Enter)
-            } else {
-              await keyboard.type(char)
+            // Check if paused
+            while (this.isPaused && !this.shouldStopTyping) {
+              await new Promise(resolve => setTimeout(resolve, 100))
             }
+            
+            if (!this.shouldStopTyping) {
+              await keyboard.type(line[charIndex])
+            }
+          }
+          
+          // Press Enter after each line (except the last line)
+          if (lineIndex < lines.length - 1 && !this.shouldStopTyping) {
+            await keyboard.type(Key.Enter)
           }
         }
 

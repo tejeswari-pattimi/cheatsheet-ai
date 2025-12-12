@@ -438,6 +438,15 @@ const Solutions: React.FC<SolutionsProps> = ({
         }
         
         if (dataToCopy) {
+          // Process the code for Ctrl+Shift+V: remove all indentation
+          const processedForTyping = dataToCopy
+            .split('\n')
+            .map(line => line.trimStart())
+            .join('\n')
+          
+          // Send processed version to main process for Ctrl+Shift+V
+          window.electronAPI.storeProcessedClipboard?.(processedForTyping)
+          
           // Try multiple clipboard methods for better reliability
           try {
             // Method 1: Try navigator.clipboard (modern API)

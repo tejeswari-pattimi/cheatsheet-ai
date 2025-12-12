@@ -411,4 +411,17 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
       return { success: false, error: "Failed to delete last screenshot" }
     }
   })
+
+  // Store processed clipboard for Ctrl+Shift+V
+  ipcMain.on("store-processed-clipboard", (event, text: string) => {
+    try {
+      // Store the processed clipboard in the shortcuts helper
+      if (deps.shortcutsHelper) {
+        deps.shortcutsHelper.setProcessedClipboard(text)
+        console.log("Stored processed clipboard for Ctrl+Shift+V")
+      }
+    } catch (error) {
+      console.error("Error storing processed clipboard:", error)
+    }
+  })
 }

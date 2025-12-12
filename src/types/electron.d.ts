@@ -63,6 +63,7 @@ export interface ElectronAPI {
   removeListener: (eventName: string, callback: (...args: any[]) => void) => void
   onModelChanged: (callback: (data: { model: string; provider: string }) => void) => () => void
   onCopyCodeToClipboard: (callback: () => void) => () => void
+  storeProcessedClipboard?: (text: string) => void
 }
 
 declare global {

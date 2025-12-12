@@ -131,6 +131,7 @@ export interface IIpcHandlerDeps {
   ) => Promise<{ success: boolean; error?: string }>
   getImagePreview: (filepath: string) => Promise<string>
   processingHelper: ProcessingHelper | null
+  shortcutsHelper: ShortcutsHelper | null
   PROCESSING_EVENTS: typeof state.PROCESSING_EVENTS
   takeScreenshot: () => Promise<string>
   getView: () => "queue" | "solutions" | "debug"
@@ -668,6 +669,7 @@ async function initializeApp() {
       deleteScreenshot,
       getImagePreview,
       processingHelper: state.processingHelper,
+      shortcutsHelper: state.shortcutsHelper,
       PROCESSING_EVENTS: state.PROCESSING_EVENTS,
       takeScreenshot,
       getView,

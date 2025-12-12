@@ -258,6 +258,9 @@ const electronAPI = {
       ipcRenderer.removeListener("copy-html-to-clipboard", subscription)
     }
   },
+  storeProcessedClipboard: (text: string) => {
+    ipcRenderer.send("store-processed-clipboard", text)
+  },
   onCopyCssToClipboard: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on("copy-css-to-clipboard", subscription)

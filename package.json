@@ -4,7 +4,8 @@
   "main": "./dist-electron/main.js",
   "scripts": {
     "clean": "npx rimraf dist dist-electron",
-    "dev": "cross-env NODE_ENV=development npm run clean && concurrently \"tsc -w -p tsconfig.electron.json\" \"vite\" \"wait-on -t 30000 http://localhost:54321 && electron ./dist-electron/main.js\"",
+    "kill-electron": "taskkill /F /IM electron.exe 2>nul || echo No Electron processes found",
+    "dev": "npm run clean && tsc -p tsconfig.electron.json && concurrently -k -s first \"tsc -w -p tsconfig.electron.json\" \"cross-env NODE_ENV=development vite --clearScreen false\" \"wait-on -t 30000 http://localhost:54321 && cross-env NODE_ENV=development electron ./dist-electron/main.js\"",
     "dev-stable": "cross-env NODE_ENV=development npm run clean && tsc -p tsconfig.electron.json && concurrently \"vite\" \"wait-on -t 30000 http://localhost:54321 && electron ./dist-electron/main.js\"",
     "test": "echo \"No tests defined. Please contribute if you like\" && exit 0",
     "lint": "npx eslint .",
@@ -18,7 +19,7 @@
   },
   "build": {
     "appId": "com.pragnyanramtha.cheatsheet-ai",
-    "productName": " CheatSheet AI",
+    "productName": "CheatSheet AI",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
@@ -63,6 +64,7 @@
       }
     },
     "win": {
+      "icon": "assets/icons/win/icon.ico",
       "target": [
         "nsis"
       ],

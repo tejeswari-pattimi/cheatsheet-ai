@@ -389,6 +389,32 @@ const Solutions: React.FC<SolutionsProps> = ({
     return () => unsubscribe()
   }, [queryClient])
 
+  // Helper function to remove Python formatting for IDE-friendly pasting
+  const removePythonFormatting = (code: string): string => {
+    // Remove markdown code blocks
+    let cleaned = code.replace(/```python\s*/gi, '').replace(/```\s*/gi, '')
+    
+    // For Python: Remove extra indentation that IDEs will auto-add
+    // Find the minimum indentation and remove it from all lines
+    const lines = cleaned.split('\n')
+    const nonEmptyLines = lines.filter(line => line.trim().length > 0)
+    
+    if (nonEmptyLines.length > 0) {
+      // Find minimum indentation
+      const minIndent = Math.min(...nonEmptyLines.map(line => {
+        const match = line.match(/^(\s*)/)
+        return match ? match[1].length : 0
+      }))
+      
+      // Remove minimum indentation from all lines
+      if (minIndent > 0) {
+        cleaned = lines.map(line => line.slice(minIndent)).join('\n')
+      }
+    }
+    
+    return cleaned.trim()
+  }
+
   // Listen for copy HTML event from global shortcut (Ctrl+Shift+C)
   useEffect(() => {
     const cleanup = window.electronAPI.onCopyHtmlToClipboard(async () => {
@@ -401,6 +427,11 @@ const Solutions: React.FC<SolutionsProps> = ({
           dataToCopy = htmlData
           message = "HTML copied to clipboard"
         } 
+        // For Python questions, remove formatting for IDE-friendly pasting
+        else if (questionType === "python" && solutionData) {
+          dataToCopy = removePythonFormatting(solutionData)
+          message = "Python code copied (IDE-friendly)"
+        }
         // Fallback to full solution data
         else if (solutionData) {
           dataToCopy = solutionData

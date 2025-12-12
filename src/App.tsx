@@ -195,15 +195,7 @@ function App() {
     // Setup API key invalid listener
     window.electronAPI.onApiKeyInvalid(onApiKeyInvalid)
 
-    // Setup mode change listener
-    const onModeChanged = (data: { mode: string; icon: string; description: string }) => {
-      showToast(
-        `${data.icon} ${data.mode.toUpperCase()} MODE`,
-        data.description,
-        "success"
-      )
-    }
-    window.electronAPI.onModeChanged?.(onModeChanged)
+    // Note: Mode change listener is handled in SubscribedApp.tsx to avoid duplicate toasts
 
     // Define a no-op handler for solution success
     const unsubscribeSolutionSuccess = window.electronAPI.onSolutionSuccess(
@@ -290,7 +282,7 @@ function App() {
               setToastState((prev) => ({ ...prev, open }))
             }
             variant={toastState.variant}
-            duration={1500}
+            duration={2000}
           >
             <ToastTitle>{toastState.title}</ToastTitle>
             <ToastDescription>{toastState.description}</ToastDescription>

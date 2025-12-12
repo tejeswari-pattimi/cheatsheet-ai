@@ -39,13 +39,64 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
 
   // Listen for model changes
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null
+    
     const cleanup = window.electronAPI.onModelChanged((data: { model: string; provider: string }) => {
+      // Clear any pending timeout to prevent duplicate toasts
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      
       setCurrentModel(data.model)
       setCurrentProvider(data.provider)
-      showToast("Model Changed", `Switched to ${data.model}`, "success")
+      
+      // Debounce the toast to prevent flashing
+      timeoutId = setTimeout(() => {
+        showToast("Model Changed", `Switched to ${data.model}`, "success")
+      }, 100)
     })
 
     return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      cleanup()
+    }
+  }, [showToast])
+
+  // Listen for mode changes (MCQ/General)
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null
+    
+    const cleanup = window.electronAPI.onModeChanged((data: { mode: string; icon: string; description: string }) => {
+      // Clear any pending timeout to prevent duplicate toasts
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      
+      // Update provider based on mode
+      const newProvider = data.mode === "mcq" ? "groq" : "gemini"
+      setCurrentProvider(newProvider)
+      
+      // Also fetch the current model for this mode
+      window.electronAPI.getConfig().then((config: any) => {
+        if (data.mode === "mcq") {
+          setCurrentModel(config.groqModel || "llama-3.3-70b-versatile")
+        } else {
+          setCurrentModel(config.geminiModel || "gemini-2.5-flash")
+        }
+      })
+      
+      // Debounce the toast to prevent flashing
+      timeoutId = setTimeout(() => {
+        showToast(`${data.icon} Mode Changed`, data.description, "success")
+      }, 100)
+    })
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
       cleanup()
     }
   }, [showToast])

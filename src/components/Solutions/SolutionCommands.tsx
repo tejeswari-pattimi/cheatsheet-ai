@@ -39,24 +39,47 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 }) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { showToast } = useToast()
 
   useEffect(() => {
-    if (onTooltipVisibilityChange) {
-      let tooltipHeight = 0
-      if (tooltipRef.current && isTooltipVisible) {
-        tooltipHeight = tooltipRef.current.offsetHeight + 10 // Adjust if necessary
+    // Use a small delay to prevent flickering during transitions
+    const timer = setTimeout(() => {
+      if (onTooltipVisibilityChange) {
+        let tooltipHeight = 0
+        if (tooltipRef.current && isTooltipVisible) {
+          tooltipHeight = tooltipRef.current.offsetHeight + 10
+        }
+        onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
       }
-      onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
-    }
+    }, 50)
+    
+    return () => clearTimeout(timer)
   }, [isTooltipVisible, onTooltipVisibilityChange])
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const handleMouseEnter = () => {
+    // Clear any pending hide timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
     setIsTooltipVisible(true)
   }
 
   const handleMouseLeave = () => {
-    setIsTooltipVisible(false)
+    // Add a small delay before hiding to prevent flickering
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsTooltipVisible(false)
+    }, 100)
   }
 
   return (

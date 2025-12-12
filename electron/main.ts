@@ -20,6 +20,28 @@ process.on('unhandledRejection', (reason, promise) => {
   // Log but don't crash - allow app to continue if possible
 })
 
+// Handle process termination signals (for dev server cleanup)
+process.on('SIGINT', () => {
+  console.log('SIGINT received, quitting app...')
+  app.quit()
+  process.exit(0)
+})
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, quitting app...')
+  app.quit()
+  process.exit(0)
+})
+
+// In development, also listen for parent process exit
+if (process.env.NODE_ENV === 'development') {
+  process.on('disconnect', () => {
+    console.log('Parent process disconnected, quitting app...')
+    app.quit()
+    process.exit(0)
+  })
+}
+
 // Constants
 const isDev = process.env.NODE_ENV === "development"
 

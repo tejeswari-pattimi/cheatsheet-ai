@@ -1,7 +1,7 @@
 import { globalShortcut, app, clipboard } from "electron"
 import { IShortcutsHelperDeps } from "./main"
 import { configHelper } from "./ConfigHelper"
-import { keyboard } from "@nut-tree-fork/nut-js"
+import { keyboard, Key } from "@nut-tree-fork/nut-js"
 
 // Helper to safely register global shortcuts
 function safeRegister(accelerator: string, callback: () => void): boolean {
@@ -93,6 +93,33 @@ export class ShortcutsHelper {
       console.log("Keypress detected - stopping typing")
       this.shouldStopTyping = true
     }
+  }
+
+  // Remove common base indentation while preserving relative indentation
+  // This prevents double-indentation in IDEs
+  private removeLeadingIndentation(text: string): string {
+    const lines = text.split('\n')
+    
+    // Find the minimum indentation (excluding empty lines)
+    const nonEmptyLines = lines.filter(line => line.trim().length > 0)
+    if (nonEmptyLines.length === 0) return text
+    
+    const minIndent = Math.min(...nonEmptyLines.map(line => {
+      const match = line.match(/^(\s*)/)
+      return match ? match[1].length : 0
+    }))
+    
+    // Remove only the common base indentation from all lines
+    // This preserves relative indentation (nested code stays nested)
+    return lines.map(line => {
+      if (line.trim().length === 0) {
+        return '' // Empty lines become truly empty
+      }
+      if (line.length >= minIndent) {
+        return line.slice(minIndent)
+      }
+      return line
+    }).join('\n')
   }
 
   private adjustOpacity(delta: number): void {
@@ -506,12 +533,16 @@ export class ShortcutsHelper {
       }
 
       try {
-        const clipboardText = clipboard.readText()
+        let clipboardText = clipboard.readText()
 
         if (!clipboardText) {
           console.log("Clipboard is empty")
           return
         }
+
+        // Remove leading indentation from code to prevent double-indentation in IDEs
+        // IDEs auto-indent when you press Enter, so we strip existing indentation
+        clipboardText = this.removeLeadingIndentation(clipboardText)
 
         console.log(`Typing ${clipboardText.length} characters from clipboard`)
         this.isTyping = true
@@ -558,7 +589,14 @@ export class ShortcutsHelper {
           
           // Type character if not stopped
           if (!this.shouldStopTyping) {
-            await keyboard.type(clipboardText[i])
+            const char = clipboardText[i]
+            
+            // Handle newlines by pressing Enter key instead of typing \n literal
+            if (char === '\n') {
+              await keyboard.type(Key.Enter)
+            } else {
+              await keyboard.type(char)
+            }
           }
         }
 

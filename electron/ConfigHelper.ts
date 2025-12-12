@@ -3,6 +3,8 @@ import fs from "node:fs"
 import path from "node:path"
 import { app } from "electron"
 import { EventEmitter } from "events"
+import { API, WINDOW, PATHS } from "./constants/app-constants"
+import { SecureConfigHelper } from "./SecureConfigHelper"
 
 interface Config {
   groqApiKey: string;
@@ -20,21 +22,21 @@ export class ConfigHelper extends EventEmitter {
     groqApiKey: "",
     geminiApiKey: "",
     mode: "mcq", // Default to MCQ mode (Groq)
-    groqModel: "llama-3.3-70b-versatile",
-    geminiModel: "gemini-2.5-flash",
-    language: "python",
-    opacity: 1.0
+    groqModel: API.DEFAULT_GROQ_MODEL,
+    geminiModel: API.DEFAULT_GEMINI_MODEL,
+    language: API.DEFAULT_LANGUAGE,
+    opacity: WINDOW.MAX_OPACITY
   };
 
   constructor() {
     super();
     // Use the app's user data directory to store the config
     try {
-      this.configPath = path.join(app.getPath('userData'), 'config.json');
+      this.configPath = path.join(app.getPath('userData'), PATHS.CONFIG_FILE);
       console.log('Config path:', this.configPath);
     } catch (err) {
       console.warn('Could not access user data path, using fallback');
-      this.configPath = path.join(process.cwd(), 'config.json');
+      this.configPath = path.join(process.cwd(), PATHS.CONFIG_FILE);
     }
     
     // Ensure the initial config file exists
@@ -58,19 +60,19 @@ export class ConfigHelper extends EventEmitter {
    * Validate and sanitize model selection to ensure only allowed models are used
    */
   private sanitizeGroqModel(model: string): string {
-    const allowedModels = ['llama-3.3-70b-versatile', 'meta-llama/llama-4-maverick-17b-128e-instruct', 'openai/gpt-oss-120b'];
+    const allowedModels = API.GROQ_MODELS as unknown as string[];
     if (!allowedModels.includes(model)) {
-      console.warn(`Invalid Groq model specified: ${model}. Using default model: llama-3.3-70b-versatile`);
-      return 'llama-3.3-70b-versatile';
+      console.warn(`Invalid Groq model specified: ${model}. Using default model: ${API.DEFAULT_GROQ_MODEL}`);
+      return API.DEFAULT_GROQ_MODEL;
     }
     return model;
   }
 
   private sanitizeGeminiModel(model: string): string {
-    const allowedModels = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+    const allowedModels = API.GEMINI_MODELS as unknown as string[];
     if (!allowedModels.includes(model)) {
-      console.warn(`Invalid Gemini model specified: ${model}. Using default model: gemini-2.5-flash`);
-      return 'gemini-2.5-flash';
+      console.warn(`Invalid Gemini model specified: ${model}. Using default model: ${API.DEFAULT_GEMINI_MODEL}`);
+      return API.DEFAULT_GEMINI_MODEL;
     }
     return model;
   }
@@ -116,6 +118,14 @@ export class ConfigHelper extends EventEmitter {
         if (config.geminiModel) {
           config.geminiModel = this.sanitizeGeminiModel(config.geminiModel);
         }
+
+        // Decrypt keys
+        if (config.groqApiKey) {
+           config.groqApiKey = SecureConfigHelper.decrypt(config.groqApiKey);
+        }
+        if (config.geminiApiKey) {
+           config.geminiApiKey = SecureConfigHelper.decrypt(config.geminiApiKey);
+        }
         
         return {
           ...this.defaultConfig,
@@ -143,6 +153,16 @@ export class ConfigHelper extends EventEmitter {
         return;
       }
       
+      // Create a copy to encrypt sensitive data before saving
+      const configToSave = { ...config };
+
+      if (configToSave.groqApiKey) {
+        configToSave.groqApiKey = SecureConfigHelper.encrypt(configToSave.groqApiKey);
+      }
+      if (configToSave.geminiApiKey) {
+        configToSave.geminiApiKey = SecureConfigHelper.encrypt(configToSave.geminiApiKey);
+      }
+
       // Ensure the directory exists
       const configDir = path.dirname(this.configPath);
       if (!fs.existsSync(configDir)) {
@@ -151,7 +171,7 @@ export class ConfigHelper extends EventEmitter {
       
       // Write the config file atomically (write to temp, then rename)
       const tempPath = this.configPath + '.tmp';
-      const configString = JSON.stringify(config, null, 2);
+      const configString = JSON.stringify(configToSave, null, 2);
       
       fs.writeFileSync(tempPath, configString, 'utf8');
       
@@ -162,7 +182,15 @@ export class ConfigHelper extends EventEmitter {
       
       // Fallback: try direct write if atomic write fails
       try {
-        fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf8');
+        // Encrypt for fallback save too
+        const configToSave = { ...config };
+        if (configToSave.groqApiKey) {
+          configToSave.groqApiKey = SecureConfigHelper.encrypt(configToSave.groqApiKey);
+        }
+        if (configToSave.geminiApiKey) {
+          configToSave.geminiApiKey = SecureConfigHelper.encrypt(configToSave.geminiApiKey);
+        }
+        fs.writeFileSync(this.configPath, JSON.stringify(configToSave, null, 2), 'utf8');
       } catch (fallbackErr) {
         console.error('Fallback config save also failed:', fallbackErr);
       }
@@ -254,13 +282,13 @@ export class ConfigHelper extends EventEmitter {
       const config = this.loadConfig();
       const opacity = config.opacity;
       // Ensure opacity is a valid number between 0.1 and 1.0
-      if (typeof opacity === 'number' && !isNaN(opacity) && opacity >= 0.1 && opacity <= 1.0) {
+      if (typeof opacity === 'number' && !isNaN(opacity) && opacity >= WINDOW.MIN_OPACITY && opacity <= WINDOW.MAX_OPACITY) {
         return opacity;
       }
-      return 1.0;
+      return WINDOW.MAX_OPACITY;
     } catch (error) {
       console.error('Error getting opacity:', error);
-      return 1.0;
+      return WINDOW.MAX_OPACITY;
     }
   }
 
@@ -269,7 +297,7 @@ export class ConfigHelper extends EventEmitter {
    */
   public setOpacity(opacity: number): void {
     // Ensure opacity is between 0.1 and 1.0
-    const validOpacity = Math.min(1.0, Math.max(0.1, opacity));
+    const validOpacity = Math.min(WINDOW.MAX_OPACITY, Math.max(WINDOW.MIN_OPACITY, opacity));
     this.updateConfig({ opacity: validOpacity });
   }  
   

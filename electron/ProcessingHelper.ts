@@ -6,6 +6,9 @@ import axios from "axios"
 import { OpenAI } from "openai"
 import { configHelper } from "./ConfigHelper"
 import { ocrHelper } from "./OCRHelper"
+import { API } from "./constants/app-constants"
+import { APIError } from "./errors/AppErrors"
+import { ErrorHandler } from "./errors/ErrorHandler"
 
 // Gemini API interfaces
 interface GeminiMessage {
@@ -65,8 +68,8 @@ export class ProcessingHelper {
         this.groqClient = new OpenAI({
           apiKey: config.groqApiKey,
           baseURL: "https://api.groq.com/openai/v1",
-          timeout: 120000,
-          maxRetries: 2
+          timeout: API.TIMEOUT_MS,
+          maxRetries: API.MAX_RETRIES - 1
         })
         console.log("Groq client initialized")
       } else {
@@ -401,7 +404,7 @@ GENERAL:
       }
 
       // Call appropriate API based on mode with retry logic
-      const maxRetries = 3
+      const maxRetries = API.MAX_RETRIES
       let lastError: any = null
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -433,7 +436,7 @@ GENERAL:
 
           if ((is503 || isNetworkError) && attempt < maxRetries) {
             // Wait before retry (exponential backoff)
-            const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
+            const waitTime = Math.min(API.RETRY_DELAY_BASE * Math.pow(2, attempt - 1), 5000)
             console.log(`Waiting ${waitTime}ms before retry...`)
 
             if (mainWindow) {
@@ -493,46 +496,9 @@ GENERAL:
       return { success: true, data: parsedResponse }
 
     } catch (error: any) {
-      console.error("Processing error:", error)
-
-      // Reset view back to queue on error
+      // Use standardized ErrorHandler
       this.deps.setView("queue")
-
-      // Send user-friendly error message
-      if (mainWindow) {
-        let errorMessage = "Processing failed"
-        let errorTitle = "Error"
-
-        if (error.response?.status === 503) {
-          errorTitle = "Service Unavailable (503)"
-          errorMessage = "API service temporarily unavailable. Please try again in a moment."
-        } else if (error.code === 'ERR_BAD_RESPONSE') {
-          errorTitle = "Bad Response"
-          errorMessage = "API returned an error. Please try again."
-        } else if (error.message?.includes('timeout')) {
-          errorTitle = "Timeout"
-          errorMessage = "Request timed out. Please try again."
-        } else if (error.message) {
-          errorMessage = error.message
-        }
-
-        mainWindow.webContents.send("processing-status", {
-          message: errorMessage,
-          progress: 0,
-          error: true
-        })
-
-        // Send error notification toast
-        mainWindow.webContents.send("show-error-notification", {
-          title: errorTitle,
-          message: errorMessage
-        })
-
-        // Also send reset-view to ensure UI is in sync
-        mainWindow.webContents.send("reset-view")
-      }
-
-      return { success: false, error: error.message || "Processing failed" }
+      return ErrorHandler.handle(error, "processInitialQuestion", mainWindow)
     }
   }
 
@@ -585,7 +551,7 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
       }
 
       // Call API with retry logic
-      const maxRetries = 3
+      const maxRetries = API.MAX_RETRIES
       let lastError: any = null
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -616,7 +582,7 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
           const isNetworkError = apiError.code === 'ECONNRESET' || apiError.code === 'ETIMEDOUT'
 
           if ((is503 || isNetworkError) && attempt < maxRetries) {
-            const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
+            const waitTime = Math.min(API.RETRY_DELAY_BASE * Math.pow(2, attempt - 1), 5000)
             console.log(`Waiting ${waitTime}ms before retry...`)
 
             if (mainWindow) {
@@ -670,41 +636,8 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
       return { success: true, data: parsedResponse }
 
     } catch (error: any) {
-      console.error("Debug error:", error)
-
-      // Keep view as "solutions" for debugging errors (user can retry with Ctrl+Enter)
-
-      if (mainWindow) {
-        let errorMessage = "Debugging failed"
-        let errorTitle = "Debug Error"
-
-        if (error.response?.status === 503) {
-          errorTitle = "Service Unavailable (503)"
-          errorMessage = "API service temporarily unavailable. Please try again in a moment."
-        } else if (error.code === 'ERR_BAD_RESPONSE') {
-          errorTitle = "Bad Response"
-          errorMessage = "API returned an error. Please try again."
-        } else if (error.message?.includes('timeout')) {
-          errorTitle = "Timeout"
-          errorMessage = "Request timed out. Please try again."
-        } else if (error.message) {
-          errorMessage = error.message
-        }
-
-        mainWindow.webContents.send("processing-status", {
-          message: errorMessage,
-          progress: 0,
-          error: true
-        })
-
-        // Send error notification toast
-        mainWindow.webContents.send("show-error-notification", {
-          title: errorTitle,
-          message: errorMessage
-        })
-      }
-
-      return { success: false, error: error.message || "Debugging failed" }
+      // Use standardized ErrorHandler - but keep view as solutions
+      return ErrorHandler.handle(error, "processDebugging", mainWindow)
     }
   }
 
@@ -735,7 +668,7 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
     }
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel || "gemini-2.5-flash"}:generateContent?key=${this.geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel || API.DEFAULT_GEMINI_MODEL}:generateContent?key=${this.geminiApiKey}`,
       payload,
       { 
         signal,
@@ -1143,7 +1076,7 @@ MANDATORY FORMAT EXAMPLES:
 ${extractedText}`
 
     const response = await this.groqClient.chat.completions.create({
-      model: config.groqModel || "llama-3.3-70b-versatile",
+      model: config.groqModel || API.DEFAULT_GROQ_MODEL,
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage }
@@ -1185,7 +1118,7 @@ ${extractedText}`
     })
 
     const response = await this.groqClient.chat.completions.create({
-      model: config.groqModel || "llama-3.3-70b-versatile",
+      model: config.groqModel || API.DEFAULT_GROQ_MODEL,
       messages,
       max_tokens: 8000, // Increased for complete debugging responses
       temperature: 0.1 // Lower for more focused answers
@@ -1200,7 +1133,7 @@ ${extractedText}`
 
     const config = configHelper.loadConfig()
     const response = await this.groqClient.chat.completions.create({
-      model: config.groqModel || "llama-3.3-70b-versatile",
+      model: config.groqModel || API.DEFAULT_GROQ_MODEL,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 2000,
       temperature: 0.1

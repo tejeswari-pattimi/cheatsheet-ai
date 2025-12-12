@@ -11,8 +11,8 @@
 **Problem**: Zero test coverage makes refactoring risky and bugs hard to catch.
 
 **Action Items**:
-- [ ] Install testing frameworks: `vitest`, `@testing-library/react`, `playwright`
-- [ ] Create `tests/` directory structure:
+- [x] Install testing frameworks: `vitest`, `@testing-library/react`, `playwright`
+- [x] Create `tests/` directory structure:
   ```
   tests/
     ├── unit/
@@ -24,7 +24,7 @@
     └── e2e/
         └── screenshot-workflow.spec.ts
   ```
-- [ ] Add test scripts to `package.json`:
+- [x] Add test scripts to `package.json`:
   ```json
   "test": "vitest",
   "test:ui": "vitest --ui",
@@ -43,8 +43,8 @@
 **Problem**: API keys stored in plain text in `config.json`.
 
 **Action Items**:
-- [ ] Install `keytar` or use Electron's `safeStorage` API
-- [ ] Create `SecureConfigHelper` class:
+- [x] Install `keytar` or use Electron's `safeStorage` API
+- [x] Create `SecureConfigHelper` class:
   ```typescript
   import { safeStorage } from 'electron'
   
@@ -58,9 +58,9 @@
     }
   }
   ```
-- [ ] Migrate existing config.json to encrypted format
-- [ ] Update `ConfigHelper.ts` to use encryption
-- [ ] Add migration script for existing users
+- [x] Migrate existing config.json to encrypted format
+- [x] Update `ConfigHelper.ts` to use encryption
+- [x] Add migration script for existing users
 
 **Estimated Time**: 4-6 hours
 
@@ -170,7 +170,7 @@ electron/
 **Problem**: Inconsistent error patterns across codebase.
 
 **Action Items**:
-- [ ] Create error types:
+- [x] Create error types:
   ```typescript
   // errors/AppErrors.ts
   export class APIError extends Error {
@@ -187,7 +187,7 @@ electron/
   export class ScreenshotError extends Error { /* ... */ }
   export class ConfigError extends Error { /* ... */ }
   ```
-- [ ] Create error handler utility:
+- [x] Create error handler utility:
   ```typescript
   // errors/ErrorHandler.ts
   export class ErrorHandler {
@@ -196,7 +196,7 @@ electron/
     }
   }
   ```
-- [ ] Update all try-catch blocks to use standard errors
+- [x] Update all try-catch blocks to use standard errors
 - [ ] Add error boundary in React components
 - [ ] Create error reporting service (optional)
 
@@ -275,7 +275,7 @@ electron/
 **Problem**: Magic numbers and hardcoded values scattered throughout.
 
 **Action Items**:
-- [ ] Create constants file:
+- [x] Create constants file:
   ```typescript
   // constants/app-constants.ts
   export const WINDOW = {
@@ -299,7 +299,7 @@ electron/
     RETRY_DELAY_BASE: 1000,
   } as const
   ```
-- [ ] Replace all magic numbers with constants
+- [x] Replace all magic numbers with constants
 - [ ] Add JSDoc comments explaining each constant
 - [ ] Make constants configurable where appropriate
 

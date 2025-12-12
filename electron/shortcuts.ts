@@ -180,7 +180,11 @@ export class ShortcutsHelper {
       try {
         const result = await this.deps.processingHelper?.processScreenshots()
         if (result) {
-          console.log("Processing result:", result.success ? "SUCCESS" : `FAILED: ${result.error}`)
+          if (result.success) {
+            console.log("Processing result: SUCCESS")
+          } else {
+            console.log(`Processing result: FAILED: ${(result as any).error}`)
+          }
         }
       } catch (error) {
         console.error("Unexpected error in Ctrl+Enter handler:", error)
@@ -225,7 +229,11 @@ export class ShortcutsHelper {
             console.log("Step 3: Processing screenshot...")
             const result = await this.deps.processingHelper?.processScreenshots()
             if (result) {
-              console.log("Quick Answer result:", result.success ? "SUCCESS" : `FAILED: ${result.error}`)
+              if (result.success) {
+                console.log("Quick Answer result: SUCCESS")
+              } else {
+                console.log(`Quick Answer result: FAILED: ${(result as any).error}`)
+              }
             }
           }
         }

@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, shell } from "electron"
+import { BrowserWindow, screen, shell, BrowserWindowConstructorOptions } from "electron"
 import path from "path"
 import fs from "fs"
 import { appState } from "../state/AppState"
@@ -50,7 +50,7 @@ export class WindowManager {
       console.log('No custom icon found, using Electron default icon')
     }
 
-    const windowSettings: Electron.BrowserWindowConstructorOptions = {
+    const windowSettings: BrowserWindowConstructorOptions = {
       width: 800,
       height: 600,
       minWidth: 750,

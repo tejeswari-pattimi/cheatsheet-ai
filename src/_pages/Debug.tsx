@@ -10,12 +10,10 @@ import { ContentSection } from "./Solutions"
 import { useToast } from "../contexts/toast"
 
 const CodeSection = ({
-  title: _title,
   code,
   isLoading,
   currentLanguage
 }: {
-  title: string
   code: React.ReactNode
   isLoading: boolean
   currentLanguage: string
@@ -160,8 +158,8 @@ const Debug: React.FC<DebugProps> = ({
             const lines = data.debug_analysis.split('\n');
             const bulletPoints = lines.filter((line: string) => 
               line.trim().match(/^[\d*\-•]+\s/) || 
-              line.trim().match(/^[A-Z][\d\.\)\:]/) ||
-              line.includes(':') && line.length < 100
+              line.trim().match(/^[A-Z][\d.:)]/) ||
+              (line.includes(':') && line.length < 100)
             );
             
             if (bulletPoints.length > 0) {
@@ -221,7 +219,7 @@ const Debug: React.FC<DebugProps> = ({
       resizeObserver.disconnect()
       cleanupFunctions.forEach((cleanup) => cleanup())
     }
-  }, [queryClient, setIsProcessing])
+  }, [queryClient, setIsProcessing, tooltipVisible, tooltipHeight, refetch, showToast])
 
   // Listen for copy code event from global shortcut
   useEffect(() => {
@@ -333,7 +331,6 @@ const Debug: React.FC<DebugProps> = ({
 
             {/* Code Section */}
             <CodeSection
-              title="Original Code"
               code={newCode}
               isLoading={!newCode}
               currentLanguage={currentLanguage}
@@ -355,7 +352,7 @@ const Debug: React.FC<DebugProps> = ({
                   {/* Process the debug analysis text by sections and lines */}
                   {(() => {
                     // First identify key sections based on common patterns in the debug output
-                    const sections: Array<{ title: string; content: string[] }> = [];
+                    const sections: { title: string, content: string[] }[] = [];
                     
                     // Split by possible section headers (### or ##)
                     const mainSections = debugAnalysis.split(/(?=^#{1,3}\s|^\*\*\*|^\s*[A-Z][\w\s]+\s*$)/m);
@@ -391,45 +388,14 @@ const Debug: React.FC<DebugProps> = ({
                           </div>
                         )}
                         <div className="pl-1">
-                          {section.content.map((line: string, lineIndex: number) => {
-                            // Handle code blocks - detect full code blocks
-                            if (line.trim().startsWith('```')) {
-                              // If we find the start of a code block, collect all lines until the end
-                              if (line.trim() === '```' || line.trim().startsWith('```')) {
-                                // Find end of this code block
-                                const codeBlockEndIndex = section.content.findIndex(
-                                  (l: string, i: number) => i > lineIndex && l.trim() === '```'
-                                );
-                                
-                                if (codeBlockEndIndex > lineIndex) {
-                                  // Extract language if specified (for future use)
-                                  // const langMatch = line.trim().match(/```(\w+)/);
-                                  // const _language = langMatch ? langMatch[1] : '';
-                                  
-                                  // Get the code content
-                                  const codeContent = section.content
-                                    .slice(lineIndex + 1, codeBlockEndIndex)
-                                    .join('\n');
-                                  
-                                  // Skip ahead in our loop
-                                  lineIndex = codeBlockEndIndex;
-                                  
-                                  return (
-                                    <div key={lineIndex} className="font-mono text-xs bg-black/50 p-3 my-2 rounded overflow-x-auto">
-                                      {codeContent}
-                                    </div>
-                                  );
-                                }
-                              }
-                            }
-                            
+                          {section.content.map((line, lineIndex) => {
                             // Handle bullet points
-                            if (line.trim().match(/^[\-*•]\s/) || line.trim().match(/^\d+\.\s/)) {
+                            if (line.trim().match(/^[-*•]\s/) || line.trim().match(/^\d+\.\s/)) {
                               return (
                                 <div key={lineIndex} className="flex items-start gap-2 my-1.5">
                                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400/80 mt-2 shrink-0" />
                                   <div className="flex-1">
-                                    {line.replace(/^[\-*•]\s|^\d+\.\s/, '')}
+                                    {line.replace(/^[-*•]\s|^\d+\.\s/, '')}
                                   </div>
                                 </div>
                               );

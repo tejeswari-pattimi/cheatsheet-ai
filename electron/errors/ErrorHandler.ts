@@ -2,7 +2,7 @@ import { BrowserWindow } from 'electron';
 import { APIError, ConfigError, ScreenshotError } from './AppErrors';
 
 export interface ErrorResult {
-  success: boolean;
+  success: false;
   error: string;
   code?: string;
   retryable?: boolean;

@@ -1,5 +1,6 @@
 console.log("Preload script starting...")
 import { contextBridge, ipcRenderer } from "electron"
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { shell } = require("electron")
 
 export const PROCESSING_EVENTS = {

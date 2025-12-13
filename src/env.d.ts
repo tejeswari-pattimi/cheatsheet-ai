@@ -1,7 +1,5 @@
 /// <reference types="vite/client" />
 
-import { ToastMessage } from "./components/ui/toast"
-
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
@@ -22,11 +20,7 @@ interface ElectronAPI {
     height: number
   }) => Promise<void>
   clearStore: () => Promise<{ success: boolean; error?: string }>
-  getScreenshots: () => Promise<{
-    success: boolean
-    previews?: Array<{ path: string; preview: string }> | null
-    error?: string
-  }>
+  getScreenshots: () => Promise<Array<{ path: string; preview: string }>>
   deleteScreenshot: (
     path: string
   ) => Promise<{ success: boolean; error?: string }>
@@ -59,6 +53,26 @@ interface ElectronAPI {
   installUpdate: () => void
   onUpdateAvailable: (callback: (info: any) => void) => () => void
   onUpdateDownloaded: (callback: (info: any) => void) => () => void
+  // Config methods
+  getConfig: () => Promise<any>
+  updateConfig: (updates: any) => Promise<any>
+  checkApiKey: () => Promise<boolean>
+  // Event listeners
+  onShowSettings: (callback: () => void) => () => void
+  onApiKeyInvalid: (callback: () => void) => () => void
+  onModelChanged: (callback: (data: { model: string; provider: string }) => void) => () => void
+  onModeChanged: (callback: (data: { mode: string; icon: string; description: string }) => void) => () => void
+  onShowErrorNotification: (callback: (data: { title: string; message: string }) => void) => () => void
+  onDeleteLastScreenshot: (callback: () => void) => () => void
+  onCopyCodeToClipboard: (callback: () => void) => () => void
+  onCopyHtmlToClipboard: (callback: () => void) => () => void
+  onCopyCssToClipboard: (callback: () => void) => () => void
+  // Other methods
+  openSettingsPortal: () => Promise<{ success: boolean; error?: string }>
+  openLink: (url: string) => Promise<{ success: boolean; error?: string }>
+  storeProcessedClipboard: (text: string) => void
+  getPlatform: () => string
+  removeListener: (channel: string, callback: (...args: any[]) => void) => void
 }
 
 interface Window {

@@ -65,6 +65,7 @@ if (!gotTheLock) {
 } else {
   console.log("Single instance lock acquired successfully")
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.on("second-instance", (_event, _commandLine) => {
     console.log("Second instance attempted to start. Focusing existing window.")
     // Someone tried to run a second instance, we should focus our window.

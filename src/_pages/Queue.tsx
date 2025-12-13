@@ -133,11 +133,6 @@ const Queue: React.FC<QueueProps> = ({
     setIsTooltipVisible(visible)
     setTooltipHeight(height)
   }
-
-  // Settings handler (for future use)
-  // const _handleOpenSettings = () => {
-  //   window.electronAPI.openSettingsPortal();
-  // };
   
   return (
     <div ref={contentRef} className={`bg-transparent w-1/2`}>

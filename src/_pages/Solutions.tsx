@@ -319,7 +319,7 @@ const Solutions: React.FC<SolutionsProps> = ({
           try {
             const existing = await window.electronAPI.getScreenshots()
             const screenshots =
-              existing.previews?.map((p: any) => ({
+              existing?.map((p: any) => ({
                 id: p.path,
                 path: p.path,
                 preview: p.preview,

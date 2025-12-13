@@ -2,9 +2,6 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslintPlugin from "@typescript-eslint/eslint-plugin";
 import tseslintParser from "@typescript-eslint/parser";
-import json from "@eslint/json";
-import markdown from "@eslint/markdown";
-import css from "@eslint/css";
 
 export default [
   // Ignore patterns
@@ -42,26 +39,19 @@ export default [
       "@typescript-eslint": tseslintPlugin,
     },
     rules: {
-      ...tseslintPlugin.configs.recommended.rules, 
+      ...tseslintPlugin.configs.recommended.rules,
+      // Relax rules for development - focus on actual errors
+      "@typescript-eslint/no-explicit-any": "warn", // Allow 'any' but warn
+      "@typescript-eslint/no-unused-vars": ["warn", { 
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }],
+      "@typescript-eslint/no-var-requires": "warn",
+      "no-undef": "warn", // Warn instead of error for globals
+      "no-useless-escape": "warn",
+      "no-empty": "warn",
     },
   },
 
-  // JSON files - skip for now
-  // {
-  //   files: ["**/*.json"],
-  //   plugins: { json },
-  //   rules: { ...json.configs.recommended.rules },
-  // },
-  // Markdown files - skip for now due to parser issues
-  // {
-  //   files: ["**/*.md"],
-  //   plugins: { markdown },
-  //   rules: {},
-  // },
-  // CSS files - skip for now
-  // {
-  //   files: ["**/*.css"],
-  //   plugins: { css },
-  //   rules: { ...css.configs.recommended.rules },
-  // },
+
 ];

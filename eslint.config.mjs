@@ -7,6 +7,9 @@ import markdown from "@eslint/markdown";
 import css from "@eslint/css";
 
 export default [
+  {
+    ignores: ["dist/", "dist-electron/", "node_modules/", "build/", "release/", "**/*.json", "**/*.md", "**/*.css"],
+  },
   js.configs.recommended,
 
   {
@@ -27,6 +30,7 @@ export default [
     },
     rules: {
       ...tseslintPlugin.configs.recommended.rules, 
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 

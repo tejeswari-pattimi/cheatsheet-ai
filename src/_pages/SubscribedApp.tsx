@@ -1,6 +1,6 @@
 // file: src/components/SubscribedApp.tsx
 import { useQueryClient } from "@tanstack/react-query"
-import { useEffect, useRef, useState } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import Queue from "../_pages/Queue"
 import Solutions from "../_pages/Solutions"
 import { useToast } from "../contexts/toast"
@@ -39,7 +39,7 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
 
   // Listen for model changes
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
     
     const cleanup = window.electronAPI.onModelChanged((data: { model: string; provider: string }) => {
       // Clear any pending timeout to prevent duplicate toasts
@@ -66,7 +66,7 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
 
   // Listen for mode changes (MCQ/General)
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
     
     const cleanup = window.electronAPI.onModeChanged((data: { mode: string; icon: string; description: string }) => {
       // Clear any pending timeout to prevent duplicate toasts

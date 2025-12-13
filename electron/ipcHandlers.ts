@@ -1,12 +1,11 @@
 // ipcHandlers.ts
 
-import { ipcMain, shell, dialog } from "electron"
-import { randomBytes } from "crypto"
+import { ipcMain, shell, BrowserWindow } from "electron"
 import { IIpcHandlerDeps } from "./main"
 import { configHelper } from "./ConfigHelper"
 
 // Helper to safely send events to window
-function safeSend(mainWindow: Electron.BrowserWindow | null, channel: string, ...args: any[]): void {
+function safeSend(mainWindow: BrowserWindow | null, channel: string, ...args: any[]): void {
   try {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(channel, ...args)

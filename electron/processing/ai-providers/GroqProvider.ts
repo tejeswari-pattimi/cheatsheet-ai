@@ -2,7 +2,6 @@ import { OpenAI } from "openai"
 import { configHelper } from "../../ConfigHelper"
 import { API } from "../../constants/app-constants"
 import { AIProvider } from "./AIProvider.interface"
-import { ocrHelper } from "../../OCRHelper"
 
 export class GroqProvider implements AIProvider {
   name = "Groq";

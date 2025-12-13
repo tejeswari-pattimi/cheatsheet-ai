@@ -8,7 +8,6 @@ import { performanceMonitor } from "./utils/PerformanceMonitor"
 import { GeminiProvider } from "./processing/ai-providers/GeminiProvider"
 import { GroqProvider } from "./processing/ai-providers/GroqProvider"
 import { MCQParser, WebDevParser, PythonParser, TextParser, ResponseParser } from "./processing/parsers/Parsers"
-import { SYSTEM_PROMPTS } from "./processing/prompts/system-prompts"
 
 export class ProcessingHelper {
   private deps: IProcessingHelperDeps

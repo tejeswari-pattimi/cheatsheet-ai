@@ -1,7 +1,5 @@
 /// <reference types="vite/client" />
 
-import { ToastMessage } from "./components/ui/toast"
-
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string

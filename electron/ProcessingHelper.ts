@@ -9,6 +9,7 @@ import { ocrHelper } from "./OCRHelper"
 import { API } from "./constants/app-constants"
 import { APIError } from "./errors/AppErrors"
 import { ErrorHandler } from "./errors/ErrorHandler"
+import { performanceMonitor } from "./utils/PerformanceMonitor"
 
 // Gemini API interfaces
 interface GeminiMessage {
@@ -104,6 +105,7 @@ export class ProcessingHelper {
 
   // MAIN PROCESSING - Single API call
   public async processScreenshots() {
+    performanceMonitor.startTimer('processScreenshots (Total)');
     try {
       const view = this.deps.getView()
       const mainQueue = this.deps.getScreenshotQueue() || []
@@ -116,18 +118,24 @@ export class ProcessingHelper {
         console.log("Processing main queue (new question)")
         // Reset to queue view for new question
         this.deps.setView("queue")
-        return await this.processInitialQuestion()
+        const result = await this.processInitialQuestion()
+        performanceMonitor.endTimer('processScreenshots (Total)');
+        return result;
       }
 
       // If we're in solutions view and have extra screenshots, it's debugging
       if (view === "solutions" && extraQueue.length > 0) {
         console.log("Processing extra queue (debugging)")
-        return await this.processDebugging()
+        const result = await this.processDebugging()
+        performanceMonitor.endTimer('processScreenshots (Total)');
+        return result;
       }
 
       console.log("No screenshots to process")
+      performanceMonitor.endTimer('processScreenshots (Total)');
       return { success: false, error: "No screenshots to process" }
     } catch (error: any) {
+      performanceMonitor.endTimer('processScreenshots (Total)');
       console.error('Error in processScreenshots:', error)
       return { success: false, error: error.message || "Processing failed" }
     }
@@ -167,12 +175,14 @@ export class ProcessingHelper {
       }
 
       // Load screenshots
+      performanceMonitor.startTimer('Load Screenshots');
       const imageDataList = await Promise.all(
         screenshots.map(async (screenshotPath) => {
           const imageBuffer = fs.readFileSync(screenshotPath)
           return imageBuffer.toString('base64')
         })
       )
+      performanceMonitor.endTimer('Load Screenshots');
 
       // Create abort controller
       this.currentAbortController = new AbortController()
@@ -409,6 +419,7 @@ GENERAL:
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
+          performanceMonitor.startTimer(`API Call (${mode}) - Attempt ${attempt}`);
           if (mode === "mcq") {
             // MCQ Mode - Use Groq
             if (!this.groqClient) {
@@ -422,6 +433,7 @@ GENERAL:
             }
             responseText = await this.callGemini(systemPrompt, imageDataList, signal)
           }
+          performanceMonitor.endTimer(`API Call (${mode}) - Attempt ${attempt}`);
 
           // Success - break retry loop
           break

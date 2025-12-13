@@ -2,6 +2,7 @@ import { globalShortcut, app, clipboard } from "electron"
 import { IShortcutsHelperDeps } from "./main"
 import { configHelper } from "./ConfigHelper"
 import { keyboard, Key } from "@nut-tree-fork/nut-js"
+import { performanceMonitor } from "./utils/PerformanceMonitor"
 
 // Helper to safely register global shortcuts
 function safeRegister(accelerator: string, callback: () => void): boolean {
@@ -177,8 +178,10 @@ export class ShortcutsHelper {
 
     safeRegister("CommandOrControl+Enter", async () => {
       console.log("Ctrl+Enter pressed - Processing screenshots...")
+      performanceMonitor.startTimer('Shortcut to Processing');
       try {
         const result = await this.deps.processingHelper?.processScreenshots()
+        performanceMonitor.endTimer('Shortcut to Processing');
         if (result) {
           if (result.success) {
             console.log("Processing result: SUCCESS")
@@ -187,6 +190,7 @@ export class ShortcutsHelper {
           }
         }
       } catch (error) {
+        performanceMonitor.endTimer('Shortcut to Processing');
         console.error("Unexpected error in Ctrl+Enter handler:", error)
       }
     })

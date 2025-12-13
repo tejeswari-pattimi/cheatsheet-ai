@@ -11,6 +11,7 @@ import SolutionCommands from "../components/Solutions/SolutionCommands"
 import Debug from "./Debug"
 import { useToast } from "../contexts/toast"
 import { COMMAND_KEY } from "../utils/platform"
+import { frontendPerformance } from "../utils/frontend-performance"
 
 export const ContentSection = ({
   title,
@@ -172,6 +173,12 @@ const Solutions: React.FC<SolutionsProps> = ({
   }
 
   const [extraScreenshots, setExtraScreenshots] = useState<Screenshot[]>([])
+
+  // Performance tracking for rendering
+  useEffect(() => {
+    frontendPerformance.start('Solutions Render');
+    return () => frontendPerformance.end('Solutions Render');
+  });
 
   useEffect(() => {
     const fetchScreenshots = async () => {

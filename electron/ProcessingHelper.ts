@@ -502,7 +502,7 @@ GENERAL:
     } catch (error: any) {
       // Use standardized ErrorHandler
       this.deps.setView("queue")
-      return ErrorHandler.handle(error, "processInitialQuestion", mainWindow)
+      return ErrorHandler.handle(error, "processInitialQuestion", mainWindow || undefined)
     }
   }
 
@@ -662,7 +662,7 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
 
     } catch (error: any) {
       // Use standardized ErrorHandler - but keep view as solutions
-      return ErrorHandler.handle(error, "processDebugging", mainWindow)
+      return ErrorHandler.handle(error, "processDebugging", mainWindow || undefined)
     }
   }
 

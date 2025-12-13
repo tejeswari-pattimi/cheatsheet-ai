@@ -12,6 +12,7 @@
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "lint": "npx eslint .",
+    "type-check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "prepare": "husky",
     "start": "cross-env NODE_ENV=development concurrently \"tsc -p tsconfig.electron.json\" \"vite\" \"wait-on -t 30000 http://localhost:54321 && electron ./dist-electron/main.js\"",
     "start-stable": "npm run build && npm run run-prod",

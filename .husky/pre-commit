@@ -1,1 +1,10 @@
-npm run test:run
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "Running type check..."
+npx tsc -p tsconfig.json --noEmit || exit 1
+
+echo "Running tests..."
+npm run test:run || exit 1
+
+echo "✓ All checks passed!"

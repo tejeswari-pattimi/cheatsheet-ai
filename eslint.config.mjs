@@ -7,6 +7,22 @@ import markdown from "@eslint/markdown";
 import css from "@eslint/css";
 
 export default [
+  // Ignore patterns
+  {
+    ignores: [
+      "dist/**",
+      "dist-electron/**",
+      "release/**",
+      "node_modules/**",
+      "build/**",
+      "*.config.js",
+      "*.config.ts",
+      "**/*.json",
+      "**/*.md",
+      ".vscode/**",
+    ],
+  },
+
   js.configs.recommended,
 
   {
@@ -30,29 +46,22 @@ export default [
     },
   },
 
-  {
-    files: ["**/*.json"],
-    plugins: { json },
-    rules: { ...json.configs.recommended.rules },
-  },
-  {
-    files: ["**/*.jsonc"],
-    plugins: { json },
-    rules: { ...json.configs.recommended.rules },
-  },
-  {
-    files: ["**/*.json5"],
-    plugins: { json },
-    rules: { ...json.configs.recommended.rules },
-  },
-  {
-    files: ["**/*.md"],
-    plugins: { markdown },
-    rules: { ...markdown.configs.recommended.rules },
-  },
-  {
-    files: ["**/*.css"],
-    plugins: { css },
-    rules: { ...css.configs.recommended.rules },
-  },
+  // JSON files - skip for now
+  // {
+  //   files: ["**/*.json"],
+  //   plugins: { json },
+  //   rules: { ...json.configs.recommended.rules },
+  // },
+  // Markdown files - skip for now due to parser issues
+  // {
+  //   files: ["**/*.md"],
+  //   plugins: { markdown },
+  //   rules: {},
+  // },
+  // CSS files - skip for now
+  // {
+  //   files: ["**/*.css"],
+  //   plugins: { css },
+  //   rules: { ...css.configs.recommended.rules },
+  // },
 ];

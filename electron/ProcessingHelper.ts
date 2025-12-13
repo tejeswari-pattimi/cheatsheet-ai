@@ -414,10 +414,11 @@ GENERAL:
             // But AIProvider interface takes `prompt` and `images`.
             // I'll extract text here for Groq.
 
-            const extractedText = await ocrHelper.extractTextFromMultiple(screenshots)
-            const fullPrompt = `${systemPrompt}\n\nQuestion from OCR:\n${extractedText}`;
-
-            responseText = await this.groqProvider.generateContent(fullPrompt, [], signal); // Empty images for Groq as we used OCR
+            // Groq vision models can read images directly - no need for OCR!
+            // This saves ~2 seconds of OCR processing time
+            performanceMonitor.startTimer('Groq Vision API (no OCR)');
+            responseText = await this.groqProvider.generateContent(systemPrompt, imageDataList, signal);
+            performanceMonitor.endTimer('Groq Vision API (no OCR)');
 
           } else {
             // General Mode - Use Gemini
@@ -561,18 +562,15 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
           performanceMonitor.startTimer(`Debug Call (${mode}) - Attempt ${attempt}`);
 
           if (mode === "mcq") {
-            // MCQ Mode - Use Groq with history
-            const extractedText = await ocrHelper.extractTextFromMultiple(screenshots)
-            const fullDebugPrompt = `${debugPrompt}\n\nExtracted text from error screenshots:\n\n${extractedText}`;
-
-            // Assuming history structure compatibility or adaptation
+            // MCQ Mode - Use Groq with history and vision (no OCR needed!)
+            // Groq vision models can read images directly - saves ~2 seconds
             const history = this.conversationHistory.map(h => ({
                 role: h.role,
                 content: h.content
             }));
 
             if (this.groqProvider.generateContentWithHistory) {
-                responseText = await this.groqProvider.generateContentWithHistory(fullDebugPrompt, [], history, signal);
+                responseText = await this.groqProvider.generateContentWithHistory(debugPrompt, imageDataList, history, signal);
             } else {
                 // Fallback if not implemented (though it is)
                 throw new Error("Groq provider does not support history");

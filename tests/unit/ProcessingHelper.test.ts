@@ -31,5 +31,5 @@ describe('ProcessingHelper', () => {
     const result = await helper.processScreenshots();
     expect(result.success).toBe(false);
     expect(result.error).toContain('No screenshots');
-  });
+  }, 10000); // 10 second timeout for OCR initialization
 });

@@ -107,9 +107,11 @@ export class ShortcutsHelper {
     // Quick Answer
     const quickAnswer = async () => {
       console.log("Quick Answer triggered: Reset → Capture → Process")
+      performanceMonitor.startTimer('Quick Answer (Total)');
       const mainWindow = this.deps.getMainWindow()
 
       try {
+        performanceMonitor.startTimer('Quick Answer - Reset');
         console.log("Step 1: Resetting queues...")
         this.deps.processingHelper?.cancelOngoingRequests()
         this.deps.clearQueues()
@@ -119,23 +121,36 @@ export class ShortcutsHelper {
           mainWindow.webContents.send("reset-view")
           mainWindow.webContents.send("reset")
         }
+        performanceMonitor.endTimer('Quick Answer - Reset');
 
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Reduced delay from 100ms to 20ms
+        await new Promise(resolve => setTimeout(resolve, 20))
 
+        performanceMonitor.startTimer('Quick Answer - Screenshot');
         console.log("Step 2: Capturing screenshot...")
         if (mainWindow && !mainWindow.isDestroyed()) {
           const screenshotPath = await this.deps.takeScreenshot()
+          performanceMonitor.endTimer('Quick Answer - Screenshot');
+          
           if (screenshotPath) {
+            performanceMonitor.startTimer('Quick Answer - Preview');
             const preview = await this.deps.getImagePreview(screenshotPath)
+            performanceMonitor.endTimer('Quick Answer - Preview');
+            
             mainWindow.webContents.send("screenshot-taken", {
               path: screenshotPath,
               preview
             })
 
-            await new Promise(resolve => setTimeout(resolve, 200))
+            // Reduced delay from 200ms to 20ms
+            await new Promise(resolve => setTimeout(resolve, 20))
 
+            performanceMonitor.startTimer('Quick Answer - Processing');
             console.log("Step 3: Processing screenshot...")
             const result = await this.deps.processingHelper?.processScreenshots()
+            performanceMonitor.endTimer('Quick Answer - Processing');
+            performanceMonitor.endTimer('Quick Answer (Total)');
+            
             if (result) {
               if (result.success) {
                 console.log("Quick Answer result: SUCCESS")
@@ -143,9 +158,14 @@ export class ShortcutsHelper {
                 console.log(`Quick Answer result: FAILED: ${(result as any).error}`)
               }
             }
+          } else {
+            performanceMonitor.endTimer('Quick Answer (Total)');
           }
+        } else {
+          performanceMonitor.endTimer('Quick Answer (Total)');
         }
       } catch (error) {
+        performanceMonitor.endTimer('Quick Answer (Total)');
         console.error("Error in Quick Answer:", error)
       }
     }

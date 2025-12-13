@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import screenshot from "screenshot-desktop";
+import { performanceMonitor } from "./utils/PerformanceMonitor";
 
 const execFileAsync = promisify(execFile);
 
@@ -163,11 +164,14 @@ export class ScreenshotHelper {
 
   private async captureScreenshot(): Promise<Buffer> {
     try {
+      performanceMonitor.startTimer('Screenshot - Capture');
       console.log("Starting screenshot capture...");
 
       // For Windows, try multiple methods
       if (process.platform === "win32") {
-        return await this.captureWindowsScreenshot();
+        const buffer = await this.captureWindowsScreenshot();
+        performanceMonitor.endTimer('Screenshot - Capture');
+        return buffer;
       }
 
       // For macOS and Linux, use buffer directly
@@ -175,14 +179,17 @@ export class ScreenshotHelper {
       const buffer = await screenshot({ format: "png" });
       
       if (!buffer || buffer.length === 0) {
+        performanceMonitor.endTimer('Screenshot - Capture');
         throw new Error("Screenshot capture returned empty buffer");
       }
       
       console.log(
         `Screenshot captured successfully, size: ${buffer.length} bytes`
       );
+      performanceMonitor.endTimer('Screenshot - Capture');
       return buffer;
     } catch (error: any) {
+      performanceMonitor.endTimer('Screenshot - Capture');
       console.error("Error capturing screenshot:", error);
       throw new Error(`Failed to capture screenshot: ${error?.message || 'Unknown error'}`);
     }

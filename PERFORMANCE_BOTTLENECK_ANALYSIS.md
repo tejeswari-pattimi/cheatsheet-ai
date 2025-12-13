@@ -66,7 +66,7 @@ OCR recognition: 1753ms
 
 #### Option 1: Skip OCR for MCQ Mode (FASTEST - Recommended)
 **Rationale**: Vision models can read text directly from images!
-- Groq/Gemini can process images without OCR
+- Groq can process images without OCR
 - OCR is redundant when using vision models
 - Save 1977ms (51% improvement!)
 

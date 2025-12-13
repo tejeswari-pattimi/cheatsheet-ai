@@ -48,10 +48,6 @@ describe('ConfigHelper', () => {
   let configHelper: ConfigHelper;
   const mockConfig = {
     groqApiKey: 'gsk_12345678901234567890123456789012',
-    geminiApiKey: 'mock-gemini-key',
-    mode: 'mcq',
-    groqModel: 'llama-3.3-70b-versatile',
-    geminiModel: 'gemini-2.5-flash',
     language: 'python',
     opacity: 1.0,
   };
@@ -75,7 +71,7 @@ describe('ConfigHelper', () => {
   it('should use default values if config file is empty', () => {
     (fs.readFileSync as any).mockReturnValue('');
     const config = configHelper.loadConfig();
-    expect(config.mode).toBe('mcq'); // Default
+    expect(config.language).toBe('python'); // Default
   });
 
   it('should update configuration', () => {

@@ -8,10 +8,7 @@ import { SecureConfigHelper } from "./SecureConfigHelper"
 
 interface Config {
   groqApiKey: string;
-  geminiApiKey: string;
-  mode: "mcq" | "general";  // MCQ mode (Groq) or General mode (Gemini)
   groqModel: string;
-  geminiModel: string;
   language: string;
   opacity: number;
 }
@@ -20,10 +17,7 @@ export class ConfigHelper extends EventEmitter {
   private configPath: string;
   private defaultConfig: Config = {
     groqApiKey: "",
-    geminiApiKey: "",
-    mode: "mcq", // Default to MCQ mode (Groq)
     groqModel: API.DEFAULT_GROQ_MODEL,
-    geminiModel: API.DEFAULT_GEMINI_MODEL,
     language: API.DEFAULT_LANGUAGE,
     opacity: WINDOW.MAX_OPACITY
   };
@@ -56,26 +50,9 @@ export class ConfigHelper extends EventEmitter {
     }
   }
 
-  /**
-   * Validate and sanitize model selection to ensure only allowed models are used
-   */
-  private sanitizeGroqModel(model: string): string {
-    const allowedModels = API.GROQ_MODELS as unknown as string[];
-    if (!allowedModels.includes(model)) {
-      console.warn(`Invalid Groq model specified: ${model}. Using default model: ${API.DEFAULT_GROQ_MODEL}`);
-      return API.DEFAULT_GROQ_MODEL;
-    }
-    return model;
-  }
 
-  private sanitizeGeminiModel(model: string): string {
-    const allowedModels = API.GEMINI_MODELS as unknown as string[];
-    if (!allowedModels.includes(model)) {
-      console.warn(`Invalid Gemini model specified: ${model}. Using default model: ${API.DEFAULT_GEMINI_MODEL}`);
-      return API.DEFAULT_GEMINI_MODEL;
-    }
-    return model;
-  }
+
+
 
   public loadConfig(): Config {
     try {
@@ -106,25 +83,11 @@ export class ConfigHelper extends EventEmitter {
           return { ...this.defaultConfig };
         }
         
-        // Ensure mode is valid
-        if (config.mode !== "mcq" && config.mode !== "general") {
-          config.mode = "mcq"; // Default to MCQ mode
-        }
-        
-        // Sanitize model selections
-        if (config.groqModel) {
-          config.groqModel = this.sanitizeGroqModel(config.groqModel);
-        }
-        if (config.geminiModel) {
-          config.geminiModel = this.sanitizeGeminiModel(config.geminiModel);
-        }
+
 
         // Decrypt keys
         if (config.groqApiKey) {
            config.groqApiKey = SecureConfigHelper.decrypt(config.groqApiKey);
-        }
-        if (config.geminiApiKey) {
-           config.geminiApiKey = SecureConfigHelper.decrypt(config.geminiApiKey);
         }
         
         return {
@@ -159,9 +122,6 @@ export class ConfigHelper extends EventEmitter {
       if (configToSave.groqApiKey) {
         configToSave.groqApiKey = SecureConfigHelper.encrypt(configToSave.groqApiKey);
       }
-      if (configToSave.geminiApiKey) {
-        configToSave.geminiApiKey = SecureConfigHelper.encrypt(configToSave.geminiApiKey);
-      }
 
       // Ensure the directory exists
       const configDir = path.dirname(this.configPath);
@@ -187,9 +147,6 @@ export class ConfigHelper extends EventEmitter {
         if (configToSave.groqApiKey) {
           configToSave.groqApiKey = SecureConfigHelper.encrypt(configToSave.groqApiKey);
         }
-        if (configToSave.geminiApiKey) {
-          configToSave.geminiApiKey = SecureConfigHelper.encrypt(configToSave.geminiApiKey);
-        }
         fs.writeFileSync(this.configPath, JSON.stringify(configToSave, null, 2), 'utf8');
       } catch (fallbackErr) {
         console.error('Fallback config save also failed:', fallbackErr);
@@ -209,21 +166,11 @@ export class ConfigHelper extends EventEmitter {
       
       const currentConfig = this.loadConfig();
       
-      // Sanitize model selections in the updates
-      if (updates.groqModel) {
-        updates.groqModel = this.sanitizeGroqModel(updates.groqModel);
-      }
-      if (updates.geminiModel) {
-        updates.geminiModel = this.sanitizeGeminiModel(updates.geminiModel);
-      }
-      
       const newConfig = { ...currentConfig, ...updates };
       this.saveConfig(newConfig);
       
-      // Emit update event for API key or model changes
-      if (updates.groqApiKey !== undefined || updates.geminiApiKey !== undefined || 
-          updates.groqModel !== undefined || updates.geminiModel !== undefined || 
-          updates.mode !== undefined || updates.language !== undefined) {
+      // Emit update event for API key or language changes
+      if (updates.groqApiKey !== undefined || updates.language !== undefined) {
         try {
           this.emit('config-updated', newConfig);
         } catch (emitError) {
@@ -244,8 +191,7 @@ export class ConfigHelper extends EventEmitter {
   public hasApiKey(): boolean {
     const config = this.loadConfig();
     const hasGroq = !!config.groqApiKey && config.groqApiKey.trim().length > 0;
-    const hasGemini = !!config.geminiApiKey && config.geminiApiKey.trim().length > 0;
-    return hasGroq || hasGemini;
+    return hasGroq;
   }
 
   /**
@@ -253,11 +199,7 @@ export class ConfigHelper extends EventEmitter {
    */
   public hasRequiredApiKey(): boolean {
     const config = this.loadConfig();
-    if (config.mode === "mcq") {
-      return !!config.groqApiKey && config.groqApiKey.trim().length > 0;
-    } else {
-      return !!config.geminiApiKey && config.geminiApiKey.trim().length > 0;
-    }
+    return !!config.groqApiKey && config.groqApiKey.trim().length > 0;
   }
   
   /**
@@ -265,13 +207,6 @@ export class ConfigHelper extends EventEmitter {
    */
   public isValidGroqApiKey(apiKey: string): boolean {
     return /^gsk_[a-zA-Z0-9]{32,}$/.test(apiKey.trim());
-  }
-
-  /**
-   * Validate Gemini API key format
-   */
-  public isValidGeminiApiKey(apiKey: string): boolean {
-    return apiKey.trim().length >= 20; // Gemini keys are typically longer
   }
   
   /**
@@ -316,31 +251,7 @@ export class ConfigHelper extends EventEmitter {
     this.updateConfig({ language });
   }
   
-  /**
-   * Get the processing mode (mcq or general)
-   */
-  public getMode(): "mcq" | "general" {
-    const config = this.loadConfig();
-    return config.mode || "mcq";
-  }
 
-  /**
-   * Set the processing mode
-   */
-  public setMode(mode: "mcq" | "general"): void {
-    this.updateConfig({ mode });
-    console.log(`Processing mode set to: ${mode}`);
-  }
-  
-  /**
-   * Toggle between MCQ and General mode
-   */
-  public toggleMode(): "mcq" | "general" {
-    const currentMode = this.getMode();
-    const newMode = currentMode === "mcq" ? "general" : "mcq";
-    this.setMode(newMode);
-    return newMode;
-  }
   
 
 }

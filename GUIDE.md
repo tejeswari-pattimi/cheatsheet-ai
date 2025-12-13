@@ -9,7 +9,7 @@ This document provides a comprehensive overview of the CheatSheet AI application
 - **Backend (Main Process)**: Electron, Node.js, TypeScript.
 - **Frontend (Renderer Process)**: React, Vite, Tailwind CSS, TypeScript.
 - **Database/Storage**: `electron-store` (local config), local filesystem (screenshots).
-- **AI Integration**: Direct API calls to OpenAI, Gemini, Anthropic (via `ProcessingHelper`).
+- **AI Integration**: Direct API calls to Groq vision models (via `ProcessingHelper`).
 
 **Core Concept**: An "invisible", overlay-based tool that captures screen content, processes it via OCR/Vision LLMs, and presents solutions to the user. Key emphasis is on stealth (hiding from screen recorders) and speed (global shortcuts).
 
@@ -27,7 +27,7 @@ Handles OS-level interactions, window management, screenshotting, and heavy proc
 | File | Purpose |
 |------|---------|
 | `main.ts` | **Entry Point**. Configures the Electron window (opacity, always-on-top, ignore-mouse), handles lifecycle events, and manages global state (`state` object). |
-| `ProcessingHelper.ts` | **The Brain**. Handles interaction with LLMs (Gemini, Groq). Contains prompts, retry logic, and parses AI responses for MCQs/Code. |
+| `ProcessingHelper.ts` | **The Brain**. Handles interaction with Groq vision models. Contains prompts, retry logic, and parses AI responses for MCQs/Code. |
 | `ScreenshotHelper.ts` | Wraps `screenshot-desktop`. Manages screenshot queues (`mainQueue` for questions, `extraQueue` for debug). Handles saving/deleting images. |
 | `shortcuts.ts` | Registers global keyboard shortcuts (e.g., `Ctrl+H` capture, `Ctrl+Enter` process) using `electron-localshortcut` or similar. |
 | `ipcHandlers.ts` | Defines `ipcMain` handlers for communication with the Renderer process. |
@@ -59,7 +59,7 @@ The UI presented to the user.
     *   `shortcuts.ts` triggers `state.processingHelper.processScreenshots()`.
     *   `ProcessingHelper.ts` reads images from queue.
     *   **Prompting**: Constructs a system prompt (MCQ, Python, Web Dev rules) + Images.
-    *   **API Call**: Sends to configured LLM (Groq for fast MCQs, Gemini/OpenAI for complex).
+    *   **API Call**: Sends images to Groq vision model for analysis.
     *   **Response**: Parses text response.
     *   **IPC**: Sends `solution-success` event with data to Renderer.
     *   **UI Update**: Renderer switches view to `Solutions.tsx`.
@@ -109,7 +109,7 @@ If you are an AI assistant asked to modify this codebase, observe these rules:
 
 ## 6. Common Tasks
 
-*   **Change Default Model**: Edit `electron/ProcessingHelper.ts` (look for `gemini-2.0-flash` or similar constants).
+*   **Change Default Model**: Edit `electron/constants/app-constants.ts` (look for `DEFAULT_GROQ_MODEL`).
 *   **Fix "Window not showing"**: Check `state.expectingWindowVisible` or opacity logic in `main.ts`.
 *   **Add new Shortcut**: Add to `shortcuts.ts` -> `registerGlobalShortcuts`.
 

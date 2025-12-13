@@ -1,12 +1,13 @@
 import fs from "node:fs"
+import sharp from "sharp"
 import { ScreenshotHelper } from "./ScreenshotHelper"
 import { IProcessingHelperDeps } from "./main"
 import { configHelper } from "./ConfigHelper"
 import { ocrHelper } from "./OCRHelper"
 import { ErrorHandler } from "./errors/ErrorHandler"
 import { performanceMonitor } from "./utils/PerformanceMonitor"
-import { GeminiProvider } from "./processing/ai-providers/GeminiProvider"
 import { GroqProvider } from "./processing/ai-providers/GroqProvider"
+import { API } from "./constants/app-constants"
 import { MCQParser, WebDevParser, PythonParser, TextParser, ResponseParser } from "./processing/parsers/Parsers"
 
 export class ProcessingHelper {
@@ -14,7 +15,6 @@ export class ProcessingHelper {
   private screenshotHelper: ScreenshotHelper | null = null
 
   // AI Providers
-  private geminiProvider: GeminiProvider;
   private groqProvider: GroqProvider;
 
   // Parsers
@@ -35,7 +35,6 @@ export class ProcessingHelper {
       console.error('Error getting screenshot helper:', error)
     }
 
-    this.geminiProvider = new GeminiProvider();
     this.groqProvider = new GroqProvider();
 
     // Initialize Parsers
@@ -114,25 +113,45 @@ export class ProcessingHelper {
       this.lastResponse = ""
 
       const config = configHelper.loadConfig()
-      const mode = config.mode
-      console.log(`Processing mode: ${mode} (${mode === "mcq" ? "Groq" : "Gemini"})`)
+      const model = config.groqModel || API.DEFAULT_GROQ_MODEL
+      const isTextOnlyModel = model.includes('gpt-oss')
+
+      console.log(`Processing with ${isTextOnlyModel ? 'GPT-OSS (text + OCR)' : 'Groq Maverick (vision)'}`)
 
       if (mainWindow) {
         console.log("Sending INITIAL_START event to switch to solutions view")
         mainWindow.webContents.send(this.deps.PROCESSING_EVENTS.INITIAL_START)
         
         mainWindow.webContents.send("processing-status", {
-          message: "Analyzing screenshots...",
+          message: isTextOnlyModel ? "Extracting text with OCR..." : "Analyzing screenshots...",
           progress: 30
         })
       }
 
-      // Load screenshots
+      // Extract text with OCR if using text-only model
+      let extractedText = ""
+      if (isTextOnlyModel) {
+        performanceMonitor.startTimer('OCR Extraction');
+        try {
+          extractedText = await ocrHelper.extractTextFromMultiple(screenshots)
+          console.log(`OCR extracted ${extractedText.length} characters`)
+        } catch (error) {
+          console.error('OCR failed:', error)
+          throw new Error('OCR extraction failed')
+        }
+        performanceMonitor.endTimer('OCR Extraction');
+      }
+
+      // Load and compress screenshots for faster API calls (only for vision models)
       performanceMonitor.startTimer('Load Screenshots');
-      const imageDataList = await Promise.all(
+      const imageDataList = isTextOnlyModel ? [] : await Promise.all(
         screenshots.map(async (screenshotPath) => {
-          const imageBuffer = fs.readFileSync(screenshotPath)
-          return imageBuffer.toString('base64')
+          // Compress image to reduce payload size and speed up API calls
+          const compressedBuffer = await sharp(screenshotPath)
+            .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 85 })
+            .toBuffer()
+          return compressedBuffer.toString('base64')
         })
       )
       performanceMonitor.endTimer('Load Screenshots');
@@ -396,36 +415,20 @@ GENERAL:
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          performanceMonitor.startTimer(`API Call (${mode}) - Attempt ${attempt}`);
+          performanceMonitor.startTimer(`API Call - Attempt ${attempt}`);
 
-          if (mode === "mcq") {
-            // MCQ Mode - Use Groq
-            // Note: GroqProvider expects "prompt" to potentially contain OCR text because it can't handle images directly yet (in our impl)
-            // But we passed images to it. The GroqProvider implementation handles calling OCR logic internally via prompt construction or assuming logic.
-            // Wait, my GroqProvider implementation DID NOT implement OCR. It assumed it was passed or handled.
-            // The original code DID OCR here.
-
-            // Re-implementing logic to pass OCR text if needed or updating GroqProvider.
-            // Original code:
-            // const extractedText = await ocrHelper.extractTextFromMultiple(this.deps.getScreenshotQueue())
-            // const userMessage = `Question from OCR:\n${extractedText}`
-
-            // To be clean, we should do OCR here if mode is MCQ and pass it.
-            // But AIProvider interface takes `prompt` and `images`.
-            // I'll extract text here for Groq.
-
-            // Groq vision models can read images directly - no need for OCR!
-            // This saves ~2 seconds of OCR processing time
+          // Use appropriate method based on model type
+          if (isTextOnlyModel) {
+            performanceMonitor.startTimer('Groq Text API (with OCR)');
+            responseText = await this.groqProvider.generateContent(systemPrompt, imageDataList, signal, undefined, extractedText);
+            performanceMonitor.endTimer('Groq Text API (with OCR)');
+          } else {
             performanceMonitor.startTimer('Groq Vision API (no OCR)');
             responseText = await this.groqProvider.generateContent(systemPrompt, imageDataList, signal);
             performanceMonitor.endTimer('Groq Vision API (no OCR)');
-
-          } else {
-            // General Mode - Use Gemini
-            responseText = await this.geminiProvider.generateContent(systemPrompt, imageDataList, signal);
           }
 
-          performanceMonitor.endTimer(`API Call (${mode}) - Attempt ${attempt}`);
+          performanceMonitor.endTimer(`API Call - Attempt ${attempt}`);
 
           // Success - break retry loop
           break
@@ -524,18 +527,36 @@ GENERAL:
         })
       }
 
-      // Load error screenshots
-      const imageDataList = await Promise.all(
+      const config = configHelper.loadConfig()
+      const model = config.groqModel || API.DEFAULT_GROQ_MODEL
+      const isTextOnlyModel = model.includes('gpt-oss')
+
+      // Extract text with OCR if using text-only model
+      let extractedText = ""
+      if (isTextOnlyModel) {
+        performanceMonitor.startTimer('OCR Extraction (Debug)');
+        try {
+          extractedText = await ocrHelper.extractTextFromMultiple(screenshots)
+        } catch (error) {
+          console.error('OCR failed in debug:', error)
+        }
+        performanceMonitor.endTimer('OCR Extraction (Debug)');
+      }
+
+      // Load and compress error screenshots (only for vision models)
+      const imageDataList = isTextOnlyModel ? [] : await Promise.all(
         screenshots.map(async (screenshotPath) => {
-          const imageBuffer = fs.readFileSync(screenshotPath)
-          return imageBuffer.toString('base64')
+          // Compress image to reduce payload size and speed up API calls
+          const compressedBuffer = await sharp(screenshotPath)
+            .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 85 })
+            .toBuffer()
+          return compressedBuffer.toString('base64')
         })
       )
 
       this.currentAbortController = new AbortController()
       const signal = this.currentAbortController.signal
-
-      const config = configHelper.loadConfig()
 
       // DEBUG PROMPT with conversation history
       const debugPrompt = `Previous response:
@@ -558,40 +579,21 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          const mode = config.mode
-          performanceMonitor.startTimer(`Debug Call (${mode}) - Attempt ${attempt}`);
+          performanceMonitor.startTimer(`Debug Call - Attempt ${attempt}`);
 
-          if (mode === "mcq") {
-            // MCQ Mode - Use Groq with history and vision (no OCR needed!)
-            // Groq vision models can read images directly - saves ~2 seconds
-            const history = this.conversationHistory.map(h => ({
-                role: h.role,
-                content: h.content
-            }));
+          // Use Groq with history
+          const history = this.conversationHistory.map(h => ({
+              role: h.role,
+              content: h.content
+          }));
 
-            if (this.groqProvider.generateContentWithHistory) {
-                responseText = await this.groqProvider.generateContentWithHistory(debugPrompt, imageDataList, history, signal);
-            } else {
-                // Fallback if not implemented (though it is)
-                throw new Error("Groq provider does not support history");
-            }
-
+          if (this.groqProvider.generateContentWithHistory) {
+              responseText = await this.groqProvider.generateContentWithHistory(debugPrompt, imageDataList, history, signal, extractedText);
           } else {
-            // General Mode - Use Gemini
-            // Adapt history
-            const history = this.conversationHistory.map(h => ({
-                role: h.role,
-                content: h.content
-            }));
-
-            if (this.geminiProvider.generateContentWithHistory) {
-                responseText = await this.geminiProvider.generateContentWithHistory(debugPrompt, imageDataList, history, signal);
-            } else {
-                throw new Error("Gemini provider does not support history");
-            }
+              throw new Error("Groq provider does not support history");
           }
 
-          performanceMonitor.endTimer(`Debug Call (${mode}) - Attempt ${attempt}`);
+          performanceMonitor.endTimer(`Debug Call - Attempt ${attempt}`);
 
           // Success - break retry loop
           break

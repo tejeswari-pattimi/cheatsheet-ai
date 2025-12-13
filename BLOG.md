@@ -10,7 +10,7 @@ Meet **CheatSheet AI** – a powerful, privacy-focused desktop application that 
 
 ### 1. **You Own Your Data (and Your Wallet)**
 
-Unlike subscription-based services that process everything on their servers, CheatSheet AI runs entirely on your machine. You bring your own API key from OpenAI, Google Gemini, or Anthropic Claude, and you only pay for what you use. No monthly subscriptions, no hidden fees, no vendor lock-in.
+Unlike subscription-based services that process everything on their servers, CheatSheet AI runs entirely on your machine. You bring your own Groq API key, and you only pay for what you use. No monthly subscriptions, no hidden fees, no vendor lock-in.
 
 **Cost Comparison:**
 - Premium Tools: $60-200/month (fixed cost regardless of usage)
@@ -20,11 +20,7 @@ Unlike subscription-based services that process everything on their servers, Che
 
 Most paid tools lock you into a single AI provider. CheatSheet AI gives you the freedom to choose:
 
-- **OpenAI**: GPT-4o and GPT-4o-mini for balanced performance
-- **Google Gemini**: Pro, Flash, and Flash-Lite models for different speed/quality tradeoffs
-- **Anthropic Claude**: Sonnet 4, Sonnet 3.7, and Haiku 3.5 for various use cases
-
-And here's the kicker: you can switch between models **instantly** with a keyboard shortcut (`Ctrl+\` or `Alt+2`). Testing different models for the same problem? Done in seconds.
+- **Groq**: Llama 4 Maverick vision model for fast image analysis
 
 ### 3. **Invisible When It Needs to Be**
 
@@ -125,8 +121,8 @@ CheatSheet AI is built for speed. Here's your complete reference:
 - `Ctrl+Shift+D` – Copy CSS
 - `Ctrl+Shift+V` – Type Clipboard Content
 
-### AI & Models
-- `Ctrl+\` or `Alt+2` – Cycle Through Models
+### AI Model
+- Uses Groq Llama 4 Maverick vision model
 
 All shortcuts are global and undetectable by browsers or other applications.
 
@@ -205,7 +201,7 @@ CheatSheet AI is built with modern web technologies:
 - Local configuration management
 
 **AI Integration:**
-- Modular API clients for OpenAI, Gemini, and Claude
+- Modular API client for Groq vision models
 - Vision API support for screenshot analysis
 - Streaming responses for real-time feedback
 - Error handling and retry logic
@@ -305,9 +301,7 @@ Find your installer in the `release` directory.
 ### CheatSheet AI
 - **Software Cost**: $0
 - **API Usage** (heavy use, 100 problems):
-  - GPT-4o: ~$5-8
-  - Gemini Pro: ~$2-4
-  - Claude Sonnet: ~$6-10
+  - Groq Llama 4 Vision Models: ~$1-3
 - **3-Month Interview Prep**: $15-30
 
 **Savings**: $270-285 over 3 months
@@ -347,7 +341,7 @@ This tool is most valuable when used to **enhance your learning**, not replace i
 | Feature | Premium Tools | CheatSheet AI |
 |---------|---------------|---------------|
 | **Pricing** | $60-200/month | Free + API costs ($2-10/month) |
-| **AI Providers** | Single provider | OpenAI, Gemini, Claude |
+| **AI Providers** | Single provider | Groq |
 | **Model Switching** | Limited/None | Instant (Ctrl+\\) |
 | **Privacy** | Server-processed | 100% local |
 | **Customization** | Locked down | Full source access |

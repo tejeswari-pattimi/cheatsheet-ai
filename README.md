@@ -15,7 +15,7 @@
 
 The codebase is designed to be adaptable:
 
-- **AI Models**: Currently supports gemini and groq api,You can modify the code to integrate with other providers like Deepseek, Llama, or any model with an API. All integration code is in `electron/ProcessingHelper.ts` and UI settings are in `src/components/Settings/SettingsDialog.tsx`.
+- **AI Models**: Currently supports Groq API. You can modify the code to integrate with other providers like Deepseek, OpenAI, or any model with an API. All integration code is in `electron/ProcessingHelper.ts` and UI settings are in `src/components/Settings/SettingsDialog.tsx`.
 - **Languages**: Add support for additional programming languages
 - **Features**: Extend the functionality with new capabilities 
 - **UI**: Customize the interface to your preferences
@@ -26,16 +26,16 @@ All it takes is modest JavaScript/TypeScript knowledge and understanding of the 
 
 - 🎯 **Invisible Overlay**: Undetectable window that bypasses most screen capture methods
 - 📸 **Smart Screenshot Capture**: Capture questions, code, and web designs with a single keystroke
-- 🤖 **Multi-AI Support**: Works with OpenAI GPT-5, Google Gemini, and Anthropic Claude
+- 🤖 **AI Support**: Works with Groq API multimodal vision models
 - 💡 **Auto-Detection**: Automatically detects question type (MCQ, Python, Web Dev, Text)
 - ⚡ **Quick Answer Mode**: One-key solution - capture and process automatically (Ctrl+D)
 - 🎨 **Web Development**: Generates complete HTML/CSS matching design screenshots
 - 📋 **Smart Copy**: Separate copy for HTML and CSS, plus auto-type clipboard feature
-- 🔄 **Model Switching**: Quickly cycle through AI models with keyboard shortcuts
+
 - 🐛 **Conversational Debugging**: Fix errors by sending additional screenshots
 - 🎨 **Advanced Window Management**: Freely move, resize, change opacity, and zoom the window
-- 🔄 **Multi-Model Support**: Choose between OpenAI (GPT-5/5-mini), Google Gemini (Pro/Flash/Lite), or Anthropic Claude models
-- 🔀 **Quick Model Switching**: Cycle through models in the same family with a single shortcut
+- 🔄 **Vision Model**: Uses Groq Llama 4 Maverick for fast multimodal analysis
+
 - 📋 **Code Clipboard**: Copy generated solutions directly to clipboard
 - 🗑️ **Screenshot Management**: Delete screenshots with keyboard shortcuts
 - 🔒 **Privacy-Focused**: Your API key and data never leave your computer except for API calls
@@ -68,10 +68,7 @@ The application uses undetectable global keyboard shortcuts that won't be detect
 - **Reset Zoom**: `Ctrl/Cmd + 0`
 - **Zoom In**: `Ctrl/Cmd + =`
 
-### AI Model Control
-- **Cycle Through Models**: `Ctrl/Cmd + \` (cycles through models in the same provider family)
-  - Gemini: Pro → Flash → Lite → Pro
-  - groq api models.
+
 
 ## Invisibility Compatibility
 
@@ -92,10 +89,7 @@ Note: The application is **NOT** invisible to:
 
 - Node.js (v16 or higher)
 - npm or bun package manager
-- API Key from one of the following:
-  - OpenAI API Key
-  - Google Gemini API Key
-  - Anthropic Claude API Key
+- Groq API Key
 - Screen Recording Permission for Terminal/IDE
   - On macOS:
     1. Go to System Preferences > Security & Privacy > Privacy > Screen Recording
@@ -133,9 +127,9 @@ Note: The application is **NOT** invisible to:
 - **Ctrl+Up** - Move Window Up
 - **Ctrl+Down** - Move Window Down
 
-### AI & Models
-- **Ctrl+\\** or **Alt+2** - Cycle Through Models (Gemini Pro → Gemini Flash → Gemini Flash lite etc.)
-- **Ctrl+/** - Toggle Processing Mode (Image Mode ↔ Text Mode - Text mode is 5-10x faster for MCQs!)
+### AI Model
+- Uses Groq Llama 4 Maverick vision model
+
 
 ### Copy & Paste
 - **Ctrl+Shift+C** - Copy HTML/Code to Clipboard
@@ -249,13 +243,13 @@ The packaged applications will be available in the `release` directory.
 - Vite
 - Tailwind CSS
 - Radix UI Components
-- OpenAI API / Google Gemini API / Anthropic Claude API
+- Groq API
 
 ## How It Works
 
 1. **Initial Setup**
    - Launch the invisible window
-   - Enter your API key (OpenAI, Gemini, or Anthropic) in the settings
+   - Enter your Groq API key in the settings
    - Choose your preferred AI provider and model for extraction, solution generation, and debugging
 
 2. **Capturing Problem**
@@ -284,9 +278,8 @@ The packaged applications will be available in the `release` directory.
    - Window remains invisible to specified screen sharing applications
    - Start a new problem using `Ctrl/Cmd + R`
 
-6. **Model Management**
-   - Quickly cycle through models in the same family with `Ctrl/Cmd + \`
-   - Switch between AI providers in the settings dialog
+6. **Model**
+   - Uses Groq Llama 4 Maverick vision model
    - Your preferences are saved between sessions
 
 7. **Language Selection**
@@ -299,7 +292,7 @@ The packaged applications will be available in the `release` directory.
 
 This application is built with extensibility in mind. You can easily add support for additional LLMs alongside the existing integrations:
 
-- Currently supports OpenAI (GPT-5, GPT-5-mini), Google Gemini (Pro, Flash, Lite), and Anthropic Claude (Sonnet 4, Sonnet 3.7, Haiku 3.5)
+- Uses Groq API Llama 4 Maverick vision model
 - You can add Deepseek, Grok, Llama, or any other AI model as alternative options
 - The application architecture allows for multiple LLM backends to coexist
 - Users have the freedom to choose their preferred AI provider
@@ -309,7 +302,7 @@ To add new models, simply extend the API integration in `electron/ProcessingHelp
 ## Configuration
 
 - **API Key**: Your personal API key is stored locally and only used for API calls to your chosen provider
-- **AI Provider Selection**: Choose between OpenAI, Google Gemini, or Anthropic Claude
+- **AI Provider**: Uses Groq API
 - **Model Selection**: You can choose different models for each stage of processing:
   - Problem Extraction: Analyzes screenshots to understand the coding problem
   - Solution Generation: Creates optimized solutions with explanations

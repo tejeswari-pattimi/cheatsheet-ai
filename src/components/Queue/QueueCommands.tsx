@@ -30,14 +30,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { showToast } = useToast()
 
-  // Determine if MCQ mode (groq) or General mode (gemini) - memoized to prevent flickering
-  // MCQ mode uses Groq models: llama, gpt-oss, maverick
-  const isMcqMode = React.useMemo(() => {
-    return currentProvider === "groq" || 
-      currentModel?.includes("llama") || 
-      currentModel?.includes("gpt-oss") ||
-      currentModel?.includes("maverick")
-  }, [currentProvider, currentModel])
+
 
   // Extract the repeated language selection logic into a separate function
   const extractLanguagesAndUpdate = (direction?: 'next' | 'prev') => {
@@ -139,121 +132,58 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     }
   }, [])
 
-  // Format model name for display
-  const getModelDisplayName = (model: string) => {
-    if (!model) return ""
-    // Gemini models
-    if (model.includes("gemini")) {
-      if (model.includes("flash-lite")) return "Lite"
-      if (model.includes("flash")) return "Flash"
-      if (model.includes("pro")) return "Pro"
-      return model
-    }
-    // Groq models (MCQ mode)
-    if (model.includes("llama")) {
-      if (model.includes("70b")) return "Llama 70B"
-      if (model.includes("maverick")) return "Maverick"
-      return "Llama"
-    }
-    if (model.includes("gpt-oss")) {
-      return "GPT-OSS 120B"
-    }
-    if (model.includes("maverick")) {
-      return "Maverick"
-    }
-    return model
-  }
 
-  // Get mode display
-  const getModeDisplay = () => {
-    if (isMcqMode) {
-      return { icon: "⚡", label: "MCQ", color: "text-yellow-400" }
-    }
-    return { icon: "🎯", label: "General", color: "text-blue-400" }
-  }
 
-  const modeInfo = getModeDisplay()
+
 
   return (
     <div>
       <div className="pt-2 w-fit">
         <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
-          {/* Mode & Model Indicator with emoji */}
+          {/* Model Indicator */}
           <div className="flex items-center gap-2 px-2 py-1">
-            <span className={`text-[14px]`}>{modeInfo.icon}</span>
-            <span className="text-[11px] font-semibold text-white/90">{getModelDisplayName(currentModel)}</span>
+            <span className="text-[14px]">🤖</span>
+            <span className="text-[11px] font-semibold text-white/90">Maverick</span>
           </div>
           <div className="h-4 w-px bg-white/20" />
 
-          {/* MCQ Mode: Show Quick Solve as primary action */}
-          {isMcqMode ? (
-            <div
-              className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-yellow-500/20 transition-colors bg-yellow-500/10 border border-yellow-500/30"
-              style={{ width: '165px' }}
-              onClick={async () => {
-                try {
-                  // Quick solve: Reset → Screenshot → Process
-                  await window.electronAPI.triggerReset()
-                  await new Promise(r => setTimeout(r, 100))
-                  await window.electronAPI.triggerScreenshot()
-                  await new Promise(r => setTimeout(r, 200))
-                  await window.electronAPI.triggerProcessScreenshots()
-                } catch (error) {
-                  showToast("Error", "Quick solve failed", "error")
-                }
-              }}
-            >
-              <span className="text-[11px] leading-none text-yellow-400 font-medium whitespace-nowrap">Quick Solve</span>
-              <div className="flex gap-1 ml-auto">
-                <button className="bg-yellow-500/20 rounded-md px-1.5 py-1 text-[11px] leading-none text-yellow-400">
-                  {COMMAND_KEY}
-                </button>
-                <button className="bg-yellow-500/20 rounded-md px-1.5 py-1 text-[11px] leading-none text-yellow-400">
-                  D
-                </button>
-              </div>
+          {/* Quick Solve as primary action */}
+          <div
+            className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-yellow-500/20 transition-colors bg-yellow-500/10 border border-yellow-500/30"
+            style={{ width: '165px' }}
+            onClick={async () => {
+              try {
+                // Quick solve: Reset → Screenshot → Process
+                await window.electronAPI.triggerReset()
+                await new Promise(r => setTimeout(r, 100))
+                await window.electronAPI.triggerScreenshot()
+                await new Promise(r => setTimeout(r, 200))
+                await window.electronAPI.triggerProcessScreenshots()
+              } catch (error) {
+                showToast("Error", "Quick solve failed", "error")
+              }
+            }}
+          >
+            <span className="text-[11px] leading-none text-yellow-400 font-medium whitespace-nowrap">Quick Solve</span>
+            <div className="flex gap-1 ml-auto">
+              <button className="bg-yellow-500/20 rounded-md px-1.5 py-1 text-[11px] leading-none text-yellow-400">
+                {COMMAND_KEY}
+              </button>
+              <button className="bg-yellow-500/20 rounded-md px-1.5 py-1 text-[11px] leading-none text-yellow-400">
+                D
+              </button>
             </div>
-          ) : (
-            /* General Mode: Show Take Screenshot as primary action */
-            <div
-              className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors"
-              style={{ width: '165px' }}
-              onClick={async () => {
-                try {
-                  const result = await window.electronAPI.triggerScreenshot()
-                  if (!result.success) {
-                    showToast("Error", "Failed to take screenshot", "error")
-                  }
-                } catch (error) {
-                  showToast("Error", "Failed to take screenshot", "error")
-                }
-              }}
-            >
-              <span className="text-[11px] leading-none truncate whitespace-nowrap">
-                {screenshotCount === 0
-                  ? "Take screenshot"
-                  : `Screenshot ${screenshotCount}/5`}
-              </span>
-              <div className="flex gap-1 ml-auto">
-                <button className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
-                  {COMMAND_KEY}
-                </button>
-                <button className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
-                  H
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
 
-          {/* MCQ Mode: Also show screenshot count if any */}
-          {isMcqMode && screenshotCount > 0 && (
+          {/* Show screenshot count if any */}
+          {screenshotCount > 0 && (
             <div className="text-[10px] text-white/50">
               {screenshotCount}/5
             </div>
           )}
 
-          {/* Solve Command - only show in General mode when screenshots exist */}
-          {!isMcqMode && screenshotCount > 0 && (
+          {/* Solve Command - show when screenshots exist */}
+          {screenshotCount > 0 && (
             <div
               className={`flex flex-col cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors ${
                 credits <= 0 ? "opacity-50 cursor-not-allowed" : ""
@@ -341,23 +271,21 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                             <p className="text-[10px] text-white/50 mt-1">Also: {COMMAND_KEY}+B, {COMMAND_KEY}+I</p>
                           </div>
 
-                          {/* Quick Solve (MCQ Mode) */}
-                          {isMcqMode && (
-                            <div className="cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors bg-yellow-500/5 border border-yellow-500/20">
-                              <div className="flex items-center justify-between">
-                                <span className="truncate text-yellow-400">⚡ Quick Solve (MCQ)</span>
-                                <div className="flex gap-1 flex-shrink-0">
-                                  <span className="bg-yellow-500/20 px-1.5 py-0.5 rounded text-[10px] leading-none text-yellow-400">
-                                    {COMMAND_KEY}
-                                  </span>
-                                  <span className="bg-yellow-500/20 px-1.5 py-0.5 rounded text-[10px] leading-none text-yellow-400">
-                                    D
-                                  </span>
-                                </div>
+                          {/* Quick Solve */}
+                          <div className="cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors bg-yellow-500/5 border border-yellow-500/20">
+                            <div className="flex items-center justify-between">
+                              <span className="truncate text-yellow-400">⚡ Quick Solve</span>
+                              <div className="flex gap-1 flex-shrink-0">
+                                <span className="bg-yellow-500/20 px-1.5 py-0.5 rounded text-[10px] leading-none text-yellow-400">
+                                  {COMMAND_KEY}
+                                </span>
+                                <span className="bg-yellow-500/20 px-1.5 py-0.5 rounded text-[10px] leading-none text-yellow-400">
+                                  D
+                                </span>
                               </div>
-                              <p className="text-[10px] text-white/50 mt-1">Reset → Screenshot → Solve in one click</p>
                             </div>
-                          )}
+                            <p className="text-[10px] text-white/50 mt-1">Reset → Screenshot → Solve in one click</p>
+                          </div>
 
                           {/* Screenshot */}
                           <div className="cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors">
@@ -423,7 +351,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                           <h4 className="text-[10px] text-white/50 uppercase tracking-wider">Screenshot & Processing</h4>
                           <ShortcutRow label="Take Screenshot" keys={[COMMAND_KEY, "H"]} alias={`${COMMAND_KEY}+M`} />
                           <ShortcutRow label="Process/Solve" keys={[COMMAND_KEY, "↵"]} />
-                          <ShortcutRow label="Quick Solve (MCQ)" keys={[COMMAND_KEY, "D"]} highlight={isMcqMode} />
+                          <ShortcutRow label="Quick Solve" keys={[COMMAND_KEY, "D"]} />
                           <ShortcutRow label="Reset" keys={[COMMAND_KEY, "R"]} />
                           <ShortcutRow label="Delete Last Screenshot" keys={[COMMAND_KEY, "⌫"]} />
                         </div>
@@ -450,11 +378,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </div>
 
                         {/* Mode & Model */}
-                        <div className="space-y-2">
-                          <h4 className="text-[10px] text-white/50 uppercase tracking-wider">Mode & Model</h4>
-                          <ShortcutRow label="Toggle MCQ/General Mode" keys={[COMMAND_KEY, "/"]} />
-                          <ShortcutRow label="Cycle Models" keys={[COMMAND_KEY, "\\"]} alias="Alt+2" />
-                        </div>
+
 
                         {/* Copy */}
                         <div className="space-y-2">

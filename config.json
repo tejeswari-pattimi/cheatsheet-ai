@@ -1,9 +1,6 @@
 {
   "groqApiKey": "",
-  "geminiApiKey": "",
-  "mode": "mcq",
-  "groqModel": "llama-3.3-70b-versatile",
-  "geminiModel": "gemini-2.5-flash-lite",
+  "groqModel": "meta-llama/llama-4-maverick-17b-128e-instruct",
   "language": "python",
   "opacity": 1
 }

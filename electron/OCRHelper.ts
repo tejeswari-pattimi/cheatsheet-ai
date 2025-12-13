@@ -4,72 +4,88 @@ import fs from 'fs';
 import sharp from 'sharp';
 
 export class OCRHelper {
-  private worker: Worker | null = null;
+  private workers: Worker[] = [];
   private isInitialized: boolean = false;
+  private workerCount: number = 2; // Use 2 workers for parallel processing
+  private currentWorkerIndex: number = 0;
 
   constructor() {
-    this.initializeWorker();
+    this.initializeWorkers();
   }
 
-  private async initializeWorker(): Promise<void> {
+  private async initializeWorkers(): Promise<void> {
     try {
-      console.log('Initializing Tesseract OCR worker...');
-      this.worker = await createWorker('eng', 1, {
-        logger: () => {}, // Disable logging for speed
-        errorHandler: () => {} // Disable error logging
+      console.log(`Initializing ${this.workerCount} Tesseract OCR workers...`);
+      
+      // Create multiple workers in parallel
+      const workerPromises = Array.from({ length: this.workerCount }, async () => {
+        const worker = await createWorker('eng', 1, {
+          logger: () => {}, // Disable logging for speed
+          errorHandler: () => {} // Disable error logging
+        });
+        
+        // ULTRA-FAST CONFIGURATION - Maximum speed
+        await worker.setParameters({
+          tessedit_pageseg_mode: 6 as any, // Uniform block of text
+          tessedit_ocr_engine_mode: 2 as any, // Legacy + LSTM (faster)
+          
+          // Speed optimizations
+          classify_bln_numeric_mode: 1 as any,
+          
+          // Disable all dictionaries for maximum speed
+          load_system_dawg: 0 as any,
+          load_freq_dawg: 0 as any,
+          load_unambig_dawg: 0 as any,
+          load_punc_dawg: 0 as any,
+          load_number_dawg: 0 as any,
+          load_bigram_dawg: 0 as any,
+          
+          // Disable language model
+          language_model_penalty_non_dict_word: 0 as any,
+          language_model_penalty_non_freq_dict_word: 0 as any,
+          
+          // Additional speed optimizations
+          tessedit_enable_doc_dict: 0 as any,
+          classify_enable_learning: 0 as any,
+          classify_enable_adaptive_matcher: 0 as any,
+        });
+        
+        return worker;
       });
       
-      // BALANCED CONFIGURATION - Fast AND accurate
-      await this.worker.setParameters({
-        tessedit_pageseg_mode: 6 as any, // Assume uniform block of text (KEEP - good for MCQ)
-        tessedit_ocr_engine_mode: 1 as any, // LSTM engine (CHANGED - better accuracy, still fast)
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789().,;:!?-/\'" ',
-        
-        // Speed optimizations that don't hurt accuracy
-        classify_bln_numeric_mode: 1 as any, // KEEP - faster numeric classification
-        
-        // Disable dictionaries (KEEP - big speed gain, minimal accuracy loss for MCQ)
-        load_system_dawg: 0 as any,
-        load_freq_dawg: 0 as any,
-        load_unambig_dawg: 0 as any,
-        load_punc_dawg: 0 as any,
-        load_number_dawg: 0 as any,
-        load_bigram_dawg: 0 as any,
-        
-        // Disable language model penalties (KEEP - MCQ doesn't need spell check)
-        language_model_penalty_non_dict_word: 0 as any,
-        language_model_penalty_non_freq_dict_word: 0 as any,
-      });
-      
+      this.workers = await Promise.all(workerPromises);
       this.isInitialized = true;
-      console.log('✓ OCR worker initialized with ULTRA-FAST settings');
+      console.log(`✓ ${this.workers.length} OCR workers initialized with ULTRA-FAST settings`);
     } catch (error) {
-      console.error('Failed to initialize OCR worker:', error);
+      console.error('Failed to initialize OCR workers:', error);
       this.isInitialized = false;
     }
   }
+  
+  private getNextWorker(): Worker | null {
+    if (this.workers.length === 0) return null;
+    const worker = this.workers[this.currentWorkerIndex];
+    this.currentWorkerIndex = (this.currentWorkerIndex + 1) % this.workers.length;
+    return worker;
+  }
 
   /**
-   * Preprocess image for faster OCR while maintaining accuracy
+   * Preprocess image for ULTRA-FAST OCR
    */
   private async preprocessImage(imagePath: string): Promise<Buffer> {
     try {
-      // Balanced preprocessing - speed + accuracy
+      // Minimal preprocessing for maximum speed
       const processed = await sharp(imagePath)
-        .resize(1600, 900, { // 900p - good balance (CHANGED from 720p)
+        .resize(1280, 720, { // 720p - faster processing
           fit: 'inside',
           withoutEnlargement: true,
-          kernel: 'lanczos3' // Better quality downscaling
+          kernel: 'nearest' // Fastest kernel
         })
-        .grayscale() // KEEP - faster processing, minimal accuracy loss
-        .normalize() // KEEP - improves contrast for better recognition
-        .sharpen({ // KEEP - enhances text edges
-          sigma: 1.0,
-          m1: 1.0,
-          m2: 0.5
-        })
-        .png({ // Use PNG for better text quality
-          compressionLevel: 0, // No compression (faster)
+        .grayscale() // Faster processing
+        .normalize() // Improve contrast
+        .threshold(128) // Binary threshold for cleaner text
+        .png({
+          compressionLevel: 0, // No compression
           quality: 100
         })
         .toBuffer();
@@ -85,13 +101,14 @@ export class OCRHelper {
    * Extract text from screenshot file - ULTRA FAST
    */
   public async extractText(imagePath: string): Promise<string> {
-    if (!this.isInitialized || !this.worker) {
-      console.log('OCR worker not initialized, initializing now...');
-      await this.initializeWorker();
+    if (!this.isInitialized || this.workers.length === 0) {
+      console.log('OCR workers not initialized, initializing now...');
+      await this.initializeWorkers();
     }
 
-    if (!this.worker) {
-      console.error('OCR worker failed to initialize');
+    const worker = this.getNextWorker();
+    if (!worker) {
+      console.error('OCR workers failed to initialize');
       return ''; // Return empty string instead of throwing
     }
 
@@ -105,21 +122,16 @@ export class OCRHelper {
       const startTime = Date.now();
       
       // Preprocess image for faster OCR
-      const preprocessStart = Date.now();
       const imageBuffer = await this.preprocessImage(imagePath);
-      console.log(`Image preprocessing: ${Date.now() - preprocessStart}ms`);
       
       // Perform OCR with minimal processing
-      const ocrStart = Date.now();
-      const { data: { text } } = await this.worker.recognize(imageBuffer, {
+      const { data: { text } } = await worker.recognize(imageBuffer, {
         rotateAuto: false, // Skip auto-rotation
         rotateRadians: 0
       });
-      console.log(`OCR recognition: ${Date.now() - ocrStart}ms`);
       
       const duration = Date.now() - startTime;
-      console.log(`✓ OCR completed in ${duration}ms`);
-      console.log(`Extracted ${text.length} characters`);
+      console.log(`✓ OCR completed in ${duration}ms (${text.length} chars)`);
       
       return text.trim();
     } catch (error) {
@@ -156,15 +168,15 @@ export class OCRHelper {
    */
   public async terminate(): Promise<void> {
     try {
-      if (this.worker) {
-        await this.worker.terminate();
-        this.worker = null;
+      if (this.workers.length > 0) {
+        await Promise.all(this.workers.map(w => w.terminate()));
+        this.workers = [];
         this.isInitialized = false;
-        console.log('OCR worker terminated');
+        console.log('OCR workers terminated');
       }
     } catch (error) {
-      console.error('Error terminating OCR worker:', error);
-      this.worker = null;
+      console.error('Error terminating OCR workers:', error);
+      this.workers = [];
       this.isInitialized = false;
     }
   }

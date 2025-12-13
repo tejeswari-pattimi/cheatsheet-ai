@@ -22,7 +22,7 @@ User presses Ctrl+D
 3. Processing Phase (~2000-5000ms) ⚠️ MAJOR BOTTLENECK
    - Load screenshots from disk
    - Convert to base64
-   - Call AI API (Groq/Gemini)
+   - Call AI API (Groq)
    - Parse response
    - Send solution-success event
 ```

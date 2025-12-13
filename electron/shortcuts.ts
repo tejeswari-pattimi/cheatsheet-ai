@@ -4,6 +4,7 @@ import { ShortcutsManager } from "./shortcuts/ShortcutsManager"
 import { ClipboardTyper } from "./shortcuts/typing/ClipboardTyper"
 import { configHelper } from "./ConfigHelper"
 import { performanceMonitor } from "./utils/PerformanceMonitor"
+import { API } from "./constants/app-constants"
 
 export class ShortcutsHelper {
   private deps: IShortcutsHelperDeps
@@ -239,37 +240,24 @@ export class ShortcutsHelper {
 
     // Model Cycling
     const cycleModels = () => {
-      console.log("Cycling through models based on current mode.")
+      console.log("Cycling between Groq models...")
       try {
         const config = configHelper.loadConfig()
-        const mode = config.mode
+        const currentModel = config.groqModel || API.DEFAULT_GROQ_MODEL
+        
+        // Toggle between Maverick Vision and GPT-OSS Text
+        const newModel = currentModel === API.GROQ_MODELS.MAVERICK_VISION 
+          ? API.GROQ_MODELS.GPT_OSS_TEXT 
+          : API.GROQ_MODELS.MAVERICK_VISION
+        
+        configHelper.updateConfig({ groqModel: newModel })
+        
+        const modelName = newModel === API.GROQ_MODELS.MAVERICK_VISION ? "Maverick Vision" : "GPT-OSS Text"
+        console.log(`Switched to: ${modelName}`)
 
-        if (mode === "mcq") {
-          const groqModels = ["llama-3.3-70b-versatile", "meta-llama/llama-4-maverick-17b-128e-instruct", "openai/gpt-oss-120b"]
-          const currentIndex = groqModels.indexOf(config.groqModel)
-          const nextIndex = (currentIndex + 1) % groqModels.length
-          const newModel = groqModels[nextIndex]
-          
-          configHelper.updateConfig({ groqModel: newModel })
-          console.log(`Switched Groq model to: ${newModel}`)
-
-          const mainWindow = this.deps.getMainWindow()
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send("model-changed", { model: newModel, mode: "mcq" })
-          }
-        } else {
-          const geminiModels = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"]
-          const currentIndex = geminiModels.indexOf(config.geminiModel)
-          const nextIndex = (currentIndex + 1) % geminiModels.length
-          const newModel = geminiModels[nextIndex]
-          
-          configHelper.updateConfig({ geminiModel: newModel })
-          console.log(`Switched Gemini model to: ${newModel}`)
-
-          const mainWindow = this.deps.getMainWindow()
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send("model-changed", { model: newModel, mode: "general" })
-          }
+        const mainWindow = this.deps.getMainWindow()
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("model-changed", { model: newModel })
         }
       } catch (error) {
         console.error("Error cycling models:", error)
@@ -278,31 +266,6 @@ export class ShortcutsHelper {
 
     ShortcutsManager.register("CommandOrControl+\\", cycleModels)
     ShortcutsManager.register("Alt+2", cycleModels)
-
-    // Mode Toggle
-    ShortcutsManager.register("CommandOrControl+/", () => {
-      console.log("Ctrl+/ pressed. Toggling processing mode...")
-      try {
-        const newMode = configHelper.toggleMode()
-        const modeIcon = newMode === "mcq" ? "⚡" : "🎯"
-        const modeDescription = newMode === "mcq" 
-          ? "MCQ Mode - Ultra-fast with Groq" 
-          : "General Mode - All questions with Gemini"
-        
-        console.log(`${modeIcon} Switched to ${newMode.toUpperCase()} MODE - ${modeDescription}`)
-
-        const mainWindow = this.deps.getMainWindow()
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("mode-changed", { 
-            mode: newMode,
-            icon: modeIcon,
-            description: modeDescription
-          })
-        }
-      } catch (error) {
-        console.error("Error toggling mode:", error)
-      }
-    })
 
     // Clipboard Utils
     ShortcutsManager.register("CommandOrControl+Shift+C", () => {

@@ -18,7 +18,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onOpenSettings }) 
     },
     {
       title: "Step 1: Add Your API Key 🔑",
-      content: "Click 'Open Settings' below to add your OpenAI, Gemini, or Claude API key. This is required to use the AI features. You can get API keys from their respective websites.",
+      content: "Click 'Open Settings' below to add your Groq API key. This is required to use the AI features. You can get API keys from Groq Console.",
       icon: "⚙️",
       action: "Open Settings"
     },
@@ -53,10 +53,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onOpenSettings }) 
       highlight: "Ctrl+↑↓"
     },
     {
-      title: "Step 7: Switch AI Models 🤖",
-      content: "Press Ctrl+\\ or Alt+2 to cycle through different AI models (like GPT-4o, GPT-4o-mini, or Gemini variants). Each model has different strengths and speeds.",
-      icon: "🔄",
-      highlight: "Ctrl+\\"
+      title: "Step 7: AI Model 🤖",
+      content: "Uses Groq Llama 4 Maverick vision model for fast and accurate analysis of all question types.",
+      icon: "🤖",
+      highlight: "Maverick"
     },
     {
       title: "Step 8: You're Ready! ✨",
@@ -182,7 +182,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onOpenSettings }) 
                   <span>API Key Required</span>
                 </h3>
                 <p className="text-yellow-200/70 text-sm mb-4">
-                  Add your OpenAI, Gemini, or Claude API key to start using CheatSheet AI.
+                  Add your Groq API key to start using CheatSheet AI.
                 </p>
                 <Button 
                   onClick={onOpenSettings}
@@ -216,7 +216,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onOpenSettings }) 
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-green-400 mt-0.5">✓</span>
-                    <span>Cycle through multiple AI models instantly</span>
+                    <span>Fast vision model for all question types</span>
                   </li>
                 </ul>
               </div>
@@ -380,10 +380,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onOpenSettings }) 
                       <span>AI & Models</span>
                     </h3>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 bg-black/30 rounded-lg">
-                        <span className="text-white/80 text-sm">Cycle Models</span>
-                        <kbd className="px-3 py-1 bg-violet-500/20 text-violet-400 rounded border border-violet-500/30 text-sm font-mono">Ctrl+\ / Alt+2</kbd>
-                      </div>
+
                     </div>
                   </div>
 

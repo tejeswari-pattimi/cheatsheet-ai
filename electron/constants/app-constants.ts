@@ -21,10 +21,11 @@ export const API = {
   MAX_RETRIES: 3,
   TIMEOUT_MS: 120000,
   RETRY_DELAY_BASE: 1000,
-  GROQ_MODELS: ['llama-3.3-70b-versatile', 'meta-llama/llama-4-maverick-17b-128e-instruct', 'openai/gpt-oss-120b'],
-  GEMINI_MODELS: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
-  DEFAULT_GROQ_MODEL: 'llama-3.3-70b-versatile',
-  DEFAULT_GEMINI_MODEL: 'gemini-2.5-flash',
+  GROQ_MODELS: {
+    MAVERICK_VISION: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+    GPT_OSS_TEXT: 'openai/gpt-oss-120b'
+  },
+  DEFAULT_GROQ_MODEL: 'meta-llama/llama-4-maverick-17b-128e-instruct',
   DEFAULT_LANGUAGE: 'python',
 } as const;
 

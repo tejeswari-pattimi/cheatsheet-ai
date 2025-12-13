@@ -46,7 +46,7 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     }
   })
   
-  ipcMain.handle("validate-api-key", async (_event, apiKey, provider?: "groq" | "gemini") => {
+  ipcMain.handle("validate-api-key", async (_event, apiKey, provider?: "groq") => {
     // Basic format validation
     if (!apiKey || apiKey.trim().length < 10) {
       return { 
@@ -61,13 +61,6 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
         return { 
           valid: false, 
           error: "Invalid Groq API key format. Groq keys start with 'gsk_'" 
-        };
-      }
-    } else if (provider === "gemini") {
-      if (!configHelper.isValidGeminiApiKey(apiKey)) {
-        return { 
-          valid: false, 
-          error: "Invalid Gemini API key format." 
         };
       }
     }

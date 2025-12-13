@@ -75,16 +75,12 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
       }
       
       // Update provider based on mode
-      const newProvider = data.mode === "mcq" ? "groq" : "gemini"
+      const newProvider = "groq"
       setCurrentProvider(newProvider)
       
       // Also fetch the current model for this mode
       window.electronAPI.getConfig().then((config: any) => {
-        if (data.mode === "mcq") {
-          setCurrentModel(config.groqModel || "llama-3.3-70b-versatile")
-        } else {
-          setCurrentModel(config.geminiModel || "gemini-2.5-flash")
-        }
+        setCurrentModel(config.groqModel || "meta-llama/llama-4-maverick-17b-128e-instruct")
       })
       
       // Debounce the toast to prevent flashing

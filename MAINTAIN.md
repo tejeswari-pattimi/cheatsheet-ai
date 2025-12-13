@@ -107,7 +107,6 @@ electron/
   ├── processing/
   │   ├── ProcessingHelper.ts (orchestrator, ~200 lines)
   │   ├── ai-providers/
-  │   │   ├── GeminiProvider.ts
   │   │   ├── GroqProvider.ts
   │   │   └── AIProvider.interface.ts
   │   ├── parsers/
@@ -125,7 +124,7 @@ electron/
 
 **Action Items**:
 - [x] Create `AIProvider` interface
-- [x] Implement `GeminiProvider` and `GroqProvider`
+- [x] Implement `GroqProvider`
 - [x] Extract parsers to separate classes
 - [x] Move prompts to external files
 - [x] Create `RetryStrategy` utility

@@ -10,7 +10,7 @@ import { ContentSection } from "./Solutions"
 import { useToast } from "../contexts/toast"
 
 const CodeSection = ({
-  title,
+  title: _title,
   code,
   isLoading,
   currentLanguage
@@ -356,7 +356,6 @@ const Debug: React.FC<DebugProps> = ({
                   {(() => {
                     // First identify key sections based on common patterns in the debug output
                     const sections: Array<{ title: string; content: string[] }> = [];
-                    let currentSection = { title: '', content: [] };
                     
                     // Split by possible section headers (### or ##)
                     const mainSections = debugAnalysis.split(/(?=^#{1,3}\s|^\*\*\*|^\s*[A-Z][\w\s]+\s*$)/m);
@@ -403,9 +402,9 @@ const Debug: React.FC<DebugProps> = ({
                                 );
                                 
                                 if (codeBlockEndIndex > lineIndex) {
-                                  // Extract language if specified
-                                  const langMatch = line.trim().match(/```(\w+)/);
-                                  const language = langMatch ? langMatch[1] : '';
+                                  // Extract language if specified (for future use)
+                                  // const langMatch = line.trim().match(/```(\w+)/);
+                                  // const _language = langMatch ? langMatch[1] : '';
                                   
                                   // Get the code content
                                   const codeContent = section.content

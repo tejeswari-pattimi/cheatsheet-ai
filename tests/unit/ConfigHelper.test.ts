@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConfigHelper } from '../../electron/ConfigHelper';
 import fs from 'node:fs';
-import path from 'node:path';
 
 // Mock dependencies
 vi.mock('electron', () => ({

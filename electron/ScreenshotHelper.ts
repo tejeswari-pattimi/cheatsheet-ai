@@ -7,7 +7,6 @@ import { v4 as uuidv4 } from "uuid";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import screenshot from "screenshot-desktop";
-import os from "os";
 
 const execFileAsync = promisify(execFile);
 
@@ -285,12 +284,12 @@ export class ScreenshotHelper {
           "All screenshot methods failed, creating placeholder image"
         );
 
-        // Create a 1x1 transparent PNG as fallback
-        const fallbackBuffer = Buffer.from(
-          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-          "base64"
-        );
-        console.log("Created placeholder image as fallback");
+        // Create a 1x1 transparent PNG as fallback (for future use)
+        // const _fallbackBuffer = Buffer.from(
+        //   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+        //   "base64"
+        // );
+        console.log("Screenshot failed, throwing error");
 
         // Show the error but return a valid buffer so the app doesn't crash
         throw new Error(

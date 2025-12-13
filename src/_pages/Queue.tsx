@@ -41,7 +41,6 @@ const Queue: React.FC<QueueProps> = ({
 
   const {
     data: screenshots = [],
-    isLoading,
     refetch
   } = useQuery<Screenshot[]>({
     queryKey: ["screenshots"],
@@ -99,7 +98,6 @@ const Queue: React.FC<QueueProps> = ({
       window.electronAPI.onResetView(() => refetch()),
       window.electronAPI.onDeleteLastScreenshot(async () => {
         if (screenshots.length > 0) {
-          const lastScreenshot = screenshots[screenshots.length - 1];
           await handleDeleteScreenshot(screenshots.length - 1);
           // Toast removed as requested
         } else {
@@ -136,9 +134,10 @@ const Queue: React.FC<QueueProps> = ({
     setTooltipHeight(height)
   }
 
-  const handleOpenSettings = () => {
-    window.electronAPI.openSettingsPortal();
-  };
+  // Settings handler (for future use)
+  // const _handleOpenSettings = () => {
+  //   window.electronAPI.openSettingsPortal();
+  // };
   
   return (
     <div ref={contentRef} className={`bg-transparent w-1/2`}>

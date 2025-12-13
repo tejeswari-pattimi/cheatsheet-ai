@@ -1,4 +1,4 @@
-import { globalShortcut, app } from "electron"
+import { globalShortcut } from "electron"
 
 export class ShortcutsManager {
   private static registeredShortcuts: Map<string, () => void> = new Map();

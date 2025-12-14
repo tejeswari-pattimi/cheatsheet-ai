@@ -24,6 +24,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
   const [open, setOpen] = useState(externalOpen || false);
   const [groqApiKey, setGroqApiKey] = useState("");
   const [groqModel, setGroqModel] = useState("meta-llama/llama-4-maverick-17b-128e-instruct");
+  const [mode, setMode] = useState<'mcq' | 'coding'>('coding');
   const [isLoading, setIsLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -49,6 +50,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
       interface Config {
         groqApiKey?: string;
         groqModel?: string;
+        mode?: 'mcq' | 'coding';
       }
 
       window.electronAPI
@@ -56,6 +58,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
         .then((config: Config) => {
           setGroqApiKey(config.groqApiKey || "");
           setGroqModel(config.groqModel || "meta-llama/llama-4-maverick-17b-128e-instruct");
+          setMode(config.mode || 'coding');
         })
         .catch((error: unknown) => {
           console.error("Failed to load config:", error);
@@ -73,6 +76,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
       const result = await window.electronAPI.updateConfig({
         groqApiKey,
         groqModel,
+        mode,
       });
 
       if (result) {
@@ -133,6 +137,41 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
         </DialogHeader>
         <div className="space-y-4 py-4">
 
+          {/* Mode Toggle */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white flex items-center gap-2">
+              <span className="text-blue-400">🎯</span> Processing Mode
+            </label>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-black/30 border border-white/10">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-white">
+                    {mode === 'mcq' ? '📝 MCQ Mode' : '💻 Coding Mode'}
+                  </span>
+                </div>
+                <p className="text-xs text-white/60">
+                  {mode === 'mcq' 
+                    ? 'Optimized for multiple choice - clean, concise answers'
+                    : 'Optimized for coding - detailed explanations + minimal code'}
+                </p>
+              </div>
+              <button
+                onClick={() => setMode(mode === 'mcq' ? 'coding' : 'mcq')}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  mode === 'coding' ? 'bg-blue-500' : 'bg-green-500'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    mode === 'coding' ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-xs text-white/50 px-1">
+              💡 Tip: Use <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-[10px]">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-[10px]">/</kbd> to toggle quickly
+            </p>
+          </div>
 
           {/* Groq API Key */}
           <div className="space-y-2">

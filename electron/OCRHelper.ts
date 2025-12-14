@@ -24,26 +24,31 @@ export class OCRHelper {
           errorHandler: () => {} // Disable error logging
         });
         
-        // BALANCED CONFIGURATION - Better accuracy for code/text
+        // OPTIMIZED CONFIGURATION - Maximum accuracy for code/text
         await worker.setParameters({
-          tessedit_pageseg_mode: 3 as any, // Fully automatic page segmentation (better for mixed content)
-          tessedit_ocr_engine_mode: 1 as any, // LSTM only (better accuracy)
+          tessedit_pageseg_mode: 1 as any, // Automatic page segmentation with OSD (Orientation and Script Detection)
+          tessedit_ocr_engine_mode: 1 as any, // LSTM only (best accuracy)
           
-          // Preserve whitespace and formatting (important for code)
+          // Preserve whitespace and formatting (critical for code)
           preserve_interword_spaces: 1 as any,
           
           // Better handling of numbers and special characters
           classify_bln_numeric_mode: 1 as any,
           
-          // Keep some dictionaries for better word recognition
+          // Enable all dictionaries for maximum accuracy
           load_system_dawg: 1 as any,
           load_freq_dawg: 1 as any,
+          load_unambig_dawg: 1 as any,
+          load_punc_dawg: 1 as any,
+          load_number_dawg: 1 as any,
+          load_bigram_dawg: 1 as any,
           
-          // Disable less useful dictionaries
-          load_unambig_dawg: 0 as any,
-          load_punc_dawg: 0 as any,
-          load_number_dawg: 0 as any,
-          load_bigram_dawg: 0 as any,
+          // Character whitelist for code (letters, numbers, common symbols)
+          // Removed to allow all characters for better flexibility
+          
+          // Improve character recognition
+          classify_enable_learning: 1 as any,
+          classify_enable_adaptive_matcher: 1 as any,
         });
         
         return worker;
@@ -51,7 +56,7 @@ export class OCRHelper {
       
       this.workers = await Promise.all(workerPromises);
       this.isInitialized = true;
-      console.log(`✓ ${this.workers.length} OCR workers initialized with balanced accuracy settings`);
+      console.log(`✓ ${this.workers.length} OCR workers initialized with MAXIMUM ACCURACY settings`);
     } catch (error) {
       console.error('Failed to initialize OCR workers:', error);
       this.isInitialized = false;
@@ -66,29 +71,55 @@ export class OCRHelper {
   }
 
   /**
-   * Preprocess image for better OCR accuracy
+   * Preprocess image for maximum OCR accuracy
+   * Tesseract works best with 300 DPI images and clean black/white text
    */
   private async preprocessImage(imagePath: string): Promise<Buffer> {
     try {
-      // Better preprocessing for accuracy with code/text
+      // Get image metadata
+      const image = sharp(imagePath);
+      const metadata = await image.metadata();
+      const originalWidth = metadata.width || 1920;
+      const originalHeight = metadata.height || 1080;
+      
+      // Calculate optimal size for OCR (aim for ~300 DPI equivalent)
+      // For typical screen text, 2x-3x upscaling works well
+      const scaleFactor = originalWidth < 1920 ? 2.5 : 1.5;
+      const targetWidth = Math.round(originalWidth * scaleFactor);
+      const targetHeight = Math.round(originalHeight * scaleFactor);
+      
       const processed = await sharp(imagePath)
-        .resize(1920, 1080, { // Higher resolution for better accuracy
-          fit: 'inside',
-          withoutEnlargement: true,
-          kernel: 'lanczos3' // Better quality kernel
+        // Upscale for better text recognition
+        .resize(targetWidth, targetHeight, {
+          fit: 'fill',
+          kernel: 'lanczos3' // Highest quality resampling
         })
-        .grayscale() // Convert to grayscale
-        .normalize() // Improve contrast
-        .sharpen() // Sharpen text edges
+        // Convert to grayscale (better for text recognition)
+        .grayscale()
+        // Normalize to improve contrast (adaptive)
+        .normalize()
+        // Moderate sharpening (not too aggressive)
+        .sharpen({
+          sigma: 1.0,
+          m1: 0.5,
+          m2: 1.5
+        })
+        // Slight brightness boost
         .modulate({
-          brightness: 1.1 // Slightly brighter
+          brightness: 1.1
         })
-        .linear(1.2, 0) // Increase contrast (multiplier, offset)
+        // Moderate contrast boost (less aggressive than before)
+        .linear(1.3, -(128 * 0.3))
+        // Gentle gamma correction
+        .gamma(1.1)
+        // Output as high-quality PNG (no threshold - let Tesseract handle it)
         .png({
           compressionLevel: 0,
           quality: 100
         })
         .toBuffer();
+      
+      console.log(`OCR preprocessing: ${originalWidth}x${originalHeight} → ${targetWidth}x${targetHeight} (${scaleFactor.toFixed(1)}x scale)`);
       
       return processed;
     } catch (error) {
@@ -121,12 +152,12 @@ export class OCRHelper {
 
       const startTime = Date.now();
       
-      // Preprocess image for faster OCR
+      // Preprocess image for maximum accuracy
       const imageBuffer = await this.preprocessImage(imagePath);
       
-      // Perform OCR with minimal processing
+      // Perform OCR with accuracy-focused settings
       const { data: { text } } = await worker.recognize(imageBuffer, {
-        rotateAuto: false, // Skip auto-rotation
+        rotateAuto: true, // Enable auto-rotation for better accuracy
         rotateRadians: 0
       });
       

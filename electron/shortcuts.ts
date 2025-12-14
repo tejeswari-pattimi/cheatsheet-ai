@@ -210,6 +210,24 @@ export class ShortcutsHelper {
     // Quit
     ShortcutsManager.register("CommandOrControl+Q", () => app.quit())
 
+    // Mode Toggle (MCQ vs Coding)
+    ShortcutsManager.register("CommandOrControl+/", () => {
+      const currentMode = configHelper.getMode()
+      const newMode = currentMode === 'mcq' ? 'coding' : 'mcq'
+      configHelper.setMode(newMode)
+      
+      const mainWindow = this.deps.getMainWindow()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const modeInfo = newMode === 'mcq' 
+          ? { mode: 'mcq', icon: '📝', description: 'MCQ Mode - Clean, concise answers' }
+          : { mode: 'coding', icon: '💻', description: 'Coding Mode - Detailed explanations + minimal code' }
+        
+        mainWindow.webContents.send('mode-changed', modeInfo)
+      }
+      
+      console.log(`Mode switched to: ${newMode}`)
+    })
+
     // Opacity
     ShortcutsManager.register("CommandOrControl+[", () => this.adjustOpacity(-0.1))
     ShortcutsManager.register("CommandOrControl+]", () => this.adjustOpacity(0.1))

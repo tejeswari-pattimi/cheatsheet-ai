@@ -72,6 +72,7 @@ export class ClipboardTyper {
         : clipboardText.split('\n').map(line => line.trimStart())
 
       console.log(`Processing ${lines.length} lines from clipboard`)
+      console.log('First 3 lines:', lines.slice(0, 3).map(l => `"${l}"`))
       this.isTyping = true
       this.shouldStopTyping = false
 
@@ -95,6 +96,8 @@ export class ClipboardTyper {
 
       keyboard.config.autoDelayMs = this.typingSpeed
 
+      let previousIndent = 0 // Track indentation of previous line
+
       for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
         if (this.shouldStopTyping) {
           console.log(`Typing stopped at line ${lineIndex + 1}/${lines.length}`)
@@ -108,7 +111,27 @@ export class ClipboardTyper {
         if (this.shouldStopTyping) break
 
         const line = lines[lineIndex]
+        
+        // Calculate current line's indentation (leading spaces)
+        const currentIndent = line.length - line.trimStart().length
+        
+        // If current line has less indentation than previous, press backspace
+        // This removes IDE's auto-indentation
+        if (lineIndex > 0 && currentIndent < previousIndent) {
+          const backspaceCount = previousIndent - currentIndent
+          console.log(`Line ${lineIndex + 1}: Reducing indent from ${previousIndent} to ${currentIndent} (${backspaceCount} backspaces)`)
+          
+          for (let i = 0; i < backspaceCount; i++) {
+            if (this.shouldStopTyping) break
+            await keyboard.type(Key.Backspace)
+            await new Promise(resolve => setTimeout(resolve, 20)) // Small delay between backspaces
+          }
+        }
+        
+        // Update previous indent for next iteration
+        previousIndent = currentIndent
 
+        // Type the line content
         for (let charIndex = 0; charIndex < line.length; charIndex++) {
           if (this.shouldStopTyping) break
 
@@ -121,6 +144,7 @@ export class ClipboardTyper {
           }
         }
 
+        // Press Enter to go to next line (except for last line)
         if (lineIndex < lines.length - 1 && !this.shouldStopTyping) {
           await keyboard.type(Key.Enter)
         }

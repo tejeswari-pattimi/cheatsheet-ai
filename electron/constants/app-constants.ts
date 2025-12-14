@@ -27,7 +27,7 @@ export const API = {
     GPT_OSS_TEXT: 'openai/gpt-oss-120b'
   },
   DEFAULT_GROQ_MODEL: 'meta-llama/llama-4-maverick-17b-128e-instruct',
-  FALLBACK_COOLDOWN_MS: 60000, // 1 minute cooldown before switching back to Maverick
+  FALLBACK_COOLDOWN_MS: 40000, // 40 seconds - Groq uses sliding window rate limits
   DEFAULT_LANGUAGE: 'python',
 } as const;
 

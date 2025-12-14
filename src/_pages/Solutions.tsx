@@ -13,14 +13,81 @@ import { useToast } from "../contexts/toast"
 import { COMMAND_KEY } from "../utils/platform"
 import { frontendPerformance } from "../utils/frontend-performance"
 
+// Simple markdown renderer for reasoning text
+const renderMarkdown = (text: string): React.ReactNode => {
+  if (!text) return null;
+  
+  // Split by lines
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    
+    // Headers
+    if (trimmed.startsWith('### ')) {
+      elements.push(<h3 key={idx} className="text-[14px] font-semibold text-white mt-3 mb-1">{trimmed.slice(4)}</h3>);
+    } else if (trimmed.startsWith('## ')) {
+      elements.push(<h2 key={idx} className="text-[15px] font-bold text-white mt-4 mb-2">{trimmed.slice(3)}</h2>);
+    } else if (trimmed.startsWith('# ')) {
+      elements.push(<h1 key={idx} className="text-[16px] font-bold text-white mt-4 mb-2">{trimmed.slice(2)}</h1>);
+    }
+    // Bold text
+    else if (trimmed.includes('**')) {
+      const parts = trimmed.split('**');
+      const rendered = parts.map((part, i) => 
+        i % 2 === 1 ? <strong key={i} className="font-semibold text-white">{part}</strong> : part
+      );
+      elements.push(<p key={idx} className="text-[13px] leading-relaxed mb-2">{rendered}</p>);
+    }
+    // Bullet points
+    else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      elements.push(
+        <div key={idx} className="flex items-start gap-2 mb-1">
+          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+          <div className="text-[13px] leading-relaxed">{trimmed.slice(2)}</div>
+        </div>
+      );
+    }
+    // Numbered lists
+    else if (/^\d+\.\s/.test(trimmed)) {
+      const match = trimmed.match(/^(\d+)\.\s(.+)$/);
+      if (match) {
+        elements.push(
+          <div key={idx} className="flex items-start gap-2 mb-1">
+            <span className="text-blue-400/80 font-medium text-[12px] mt-0.5">{match[1]}.</span>
+            <div className="text-[13px] leading-relaxed">{match[2]}</div>
+          </div>
+        );
+      }
+    }
+    // Code inline
+    else if (trimmed.includes('`') && !trimmed.startsWith('```')) {
+      const parts = trimmed.split('`');
+      const rendered = parts.map((part, i) => 
+        i % 2 === 1 ? <code key={i} className="bg-white/10 px-1.5 py-0.5 rounded text-[12px] font-mono text-green-400">{part}</code> : part
+      );
+      elements.push(<p key={idx} className="text-[13px] leading-relaxed mb-2">{rendered}</p>);
+    }
+    // Regular paragraph
+    else if (trimmed.length > 0 && !trimmed.startsWith('```')) {
+      elements.push(<p key={idx} className="text-[13px] leading-relaxed mb-2">{trimmed}</p>);
+    }
+  });
+  
+  return <div className="space-y-1">{elements}</div>;
+};
+
 export const ContentSection = ({
   title,
   content,
-  isLoading
+  isLoading,
+  isMarkdown = false
 }: {
   title: string
   content: React.ReactNode
   isLoading: boolean
+  isMarkdown?: boolean
 }) => (
   <div className="space-y-2">
     <h2 className="text-[13px] font-medium text-white tracking-wide">
@@ -34,7 +101,7 @@ export const ContentSection = ({
       </div>
     ) : (
       <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px]">
-        {content}
+        {isMarkdown && typeof content === 'string' ? renderMarkdown(content) : content}
       </div>
     )}
   </div>
@@ -410,28 +477,29 @@ const Solutions: React.FC<SolutionsProps> = ({
     return () => unsubscribe()
   }, [queryClient])
 
-  // Helper function to remove Python formatting for IDE-friendly pasting
+  // Helper function to extract ONLY code (no explanation) for IDE-friendly pasting
   const removePythonFormatting = (code: string): string => {
-    // Remove markdown code blocks
-    let cleaned = code.replace(/```python\s*/gi, '').replace(/```\s*/gi, '')
+    // Extract only the code block (between ```python and ```)
+    const codeMatch = code.match(/```python\s*([\s\S]*?)```/i)
     
-    // For Python: Remove extra indentation that IDEs will auto-add
-    // Find the minimum indentation and remove it from all lines
-    const lines = cleaned.split('\n')
-    const nonEmptyLines = lines.filter(line => line.trim().length > 0)
-    
-    if (nonEmptyLines.length > 0) {
-      // Find minimum indentation
-      const minIndent = Math.min(...nonEmptyLines.map(line => {
-        const match = line.match(/^(\s*)/)
-        return match ? match[1].length : 0
-      }))
-      
-      // Remove minimum indentation from all lines
-      if (minIndent > 0) {
-        cleaned = lines.map(line => line.slice(minIndent)).join('\n')
-      }
+    if (codeMatch && codeMatch[1]) {
+      // Found code block - use only the code
+      return codeMatch[1].trim()
     }
+    
+    // Fallback: if no code block found, try to remove explanation
+    // Split by common patterns and take the code part
+    let cleaned = code
+    
+    // Remove "**Explanation:**" section if present
+    cleaned = cleaned.replace(/\*\*Explanation:\*\*[\s\S]*?(?=```|$)/gi, '')
+    
+    // Remove markdown code blocks markers
+    cleaned = cleaned.replace(/```python\s*/gi, '').replace(/```\s*/gi, '')
+    
+    // Remove any remaining markdown formatting
+    cleaned = cleaned.replace(/\*\*[^*]+\*\*/g, '') // Remove bold
+    cleaned = cleaned.replace(/\*[^*]+\*/g, '') // Remove italic
     
     return cleaned.trim()
   }
@@ -459,11 +527,10 @@ const Solutions: React.FC<SolutionsProps> = ({
         }
         
         if (dataToCopy) {
-          // Process the code for Ctrl+Shift+V: remove all indentation
-          const processedForTyping = dataToCopy
-            .split('\n')
-            .map(line => line.trimStart())
-            .join('\n')
+          // Process the code for Ctrl+Shift+V: keep indentation intact
+          // The ClipboardTyper will handle IDE auto-indentation with smart backspacing
+          const processedForTyping = dataToCopy.split('\n').map(line => line.trimStart()).join('\n')
+
           
           // Send processed version to main process for Ctrl+Shift+V
           window.electronAPI.storeProcessedClipboard?.(processedForTyping)
@@ -694,42 +761,52 @@ const Solutions: React.FC<SolutionsProps> = ({
 
                 {solutionData && (
                   <>
-                    {/* MCQ Mode: Show Final Answer First */}
+                    {/* MCQ Mode: Show Final Answer First - PROMINENT */}
                     {currentMode === 'mcq' && questionType === "multiple_choice" && finalAnswer && (
-                      <div className="mb-4 p-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-500/50 rounded-lg">
-                        <h2 className="text-[13px] font-medium text-white tracking-wide mb-2">
-                          ✓ FINAL ANSWER
-                        </h2>
-                        <p className="text-lg font-bold text-green-400">
+                      <div className="mb-6 p-5 bg-gradient-to-r from-green-500/30 to-emerald-500/30 border-3 border-green-400 rounded-xl shadow-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-2xl">✓</span>
+                          <h2 className="text-[15px] font-bold text-white tracking-wide uppercase">
+                            Final Answer
+                          </h2>
+                        </div>
+                        <p className="text-2xl font-bold text-green-300 leading-relaxed">
                           {finalAnswer}
                         </p>
                       </div>
                     )}
 
-                    {/* MCQ Mode: Clean Reasoning (not "My Thoughts") */}
-                    <ContentSection
-                      title={currentMode === 'mcq' ? 'Reasoning' : `My Thoughts (${COMMAND_KEY} + Arrow keys to scroll)`}
-                      content={
-                        thoughtsData && (
-                          <div className="space-y-3">
-                            <div className="space-y-1">
-                              {thoughtsData.map((thought, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-start gap-2"
-                                >
-                                  <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-                                  <div>{thought}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      }
-                      isLoading={!thoughtsData}
-                    />
+                    {/* Coding Mode: Extract and show explanation at top */}
+                    {currentMode === 'coding' && questionType === "python" && (
+                      <div className="mb-4 p-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-2 border-blue-500/50 rounded-lg">
+                        <h2 className="text-[13px] font-medium text-white tracking-wide mb-2">
+                          💡 Explanation
+                        </h2>
+                        <div className="text-[13px] text-gray-100">
+                          {(() => {
+                            // Extract explanation from solutionData (text before code block)
+                            let beforeCode = solutionData.split('```')[0].trim()
+                            // Remove "**Explanation:**" prefix if present (avoid duplicate)
+                            beforeCode = beforeCode.replace(/^\*\*Explanation:\*\*\s*/i, '')
+                            return renderMarkdown(beforeCode)
+                          })()}
+                        </div>
+                      </div>
+                    )}
 
-                    {/* Coding Mode: Show Final Answer After Thoughts */}
+                    {/* MCQ Mode: Clean Reasoning (not "My Thoughts") */}
+                    {currentMode === 'mcq' && (
+                      <div className="mt-6 pt-4 border-t border-white/10">
+                        <ContentSection
+                          title="Reasoning"
+                          content={thoughtsData ? thoughtsData.join('\n\n') : ''}
+                          isLoading={!thoughtsData}
+                          isMarkdown={true}
+                        />
+                      </div>
+                    )}
+
+                    {/* Coding Mode: Show Final Answer After Explanation (for MCQ) */}
                     {currentMode === 'coding' && questionType === "multiple_choice" && finalAnswer && (
                       <div className="mb-4 p-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-500/50 rounded-lg">
                         <h2 className="text-[13px] font-medium text-white tracking-wide mb-2">
@@ -741,11 +818,19 @@ const Solutions: React.FC<SolutionsProps> = ({
                       </div>
                     )}
 
+                    {/* Code Section */}
                     {/* Hide code cell in MCQ mode for MCQ questions */}
                     {!(currentMode === 'mcq' && questionType === "multiple_choice") && (
                       <SolutionSection
-                        title="Solution"
-                        content={solutionData}
+                        title={currentMode === 'coding' && questionType === "python" ? "Minimal Code" : "Solution"}
+                        content={(() => {
+                          // In coding mode for Python, extract only the code block
+                          if (currentMode === 'coding' && questionType === "python") {
+                            const codeMatch = solutionData.match(/```python\s*([\s\S]*?)```/)
+                            return codeMatch ? codeMatch[1].trim() : solutionData
+                          }
+                          return solutionData
+                        })()}
                         isLoading={!solutionData}
                         currentLanguage={currentLanguage}
                       />

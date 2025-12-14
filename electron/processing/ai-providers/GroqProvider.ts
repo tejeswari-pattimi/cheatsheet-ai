@@ -30,7 +30,7 @@ export class GroqProvider implements AIProvider {
   }
 
   /**
-   * Get the appropriate model to use (Maverick or Scout fallback)
+   * Get the appropriate model to use (Maverick or GPT-OSS fallback)
    */
   private getModelToUse(configModel: string): string {
     const now = Date.now();
@@ -42,11 +42,11 @@ export class GroqProvider implements AIProvider {
       this.fallbackUntil = 0;
     }
     
-    // If using fallback, return Scout model
+    // If using fallback, return GPT-OSS text model
     if (this.isUsingFallback) {
       const remainingTime = Math.ceil((this.fallbackUntil - now) / 1000);
-      console.log(`[Groq] Using Scout fallback model (${remainingTime}s remaining)`);
-      return API.GROQ_MODELS.SCOUT_VISION;
+      console.log(`[Groq] Using GPT-OSS fallback model with OCR (${remainingTime}s remaining)`);
+      return API.GROQ_MODELS.GPT_OSS_TEXT;
     }
     
     // Otherwise use configured model
@@ -54,14 +54,18 @@ export class GroqProvider implements AIProvider {
   }
 
   /**
-   * Handle rate limit by switching to Scout fallback model
+   * Handle rate limit by switching to GPT-OSS fallback model with OCR
+   * Groq uses sliding window rate limits (60s from first request), so we wait 40s to be safe
    */
   private handleRateLimit(): void {
     if (!this.isUsingFallback) {
       this.isUsingFallback = true;
       this.fallbackUntil = Date.now() + API.FALLBACK_COOLDOWN_MS;
-      console.log(`[Groq] ⚠️ Rate limit detected! Switching to Scout model for ${API.FALLBACK_COOLDOWN_MS / 1000}s`);
-      console.log(`[Groq] ⚠️ WARNING: Scout model is less accurate than Maverick. Answers may be incorrect.`);
+      
+      const cooldownSeconds = API.FALLBACK_COOLDOWN_MS / 1000;
+      console.log(`[Groq] ⚠️ Rate limit detected! Switching to GPT-OSS + OCR for ${cooldownSeconds}s`);
+      console.log(`[Groq] ⚠️ Using OCR text extraction with GPT-OSS-120B model`);
+      console.log(`[Groq] ℹ️ Groq uses sliding window rate limits - waiting ${cooldownSeconds}s before retrying Maverick`);
     }
   }
 
@@ -82,13 +86,23 @@ export class GroqProvider implements AIProvider {
     console.log(`[Groq] Starting API call with model: ${model}`);
 
     // Use the provided system prompt directly (already optimized in ProcessingHelper)
-    const systemMessage = systemPrompt || "You are an expert problem solver.";
+    let systemMessage = systemPrompt || "You are an expert problem solver.";
+    
+    // Extra reinforcement for MCQ mode to prevent code blocks
+    const mode = configHelper.getMode();
+    if (mode === 'mcq') {
+      systemMessage += `\n\n🚨 CRITICAL REMINDER: You are in MCQ MODE. DO NOT include any code blocks (no \`\`\`python, \`\`\`javascript, etc.). Only provide reasoning and final answer.`;
+    }
 
     // Check if this is a text-only model (GPT-OSS)
     const isTextOnlyModel = model.includes('gpt-oss');
 
-    if (isTextOnlyModel && extractedText) {
-      // Text-only model: use OCR text
+    if (isTextOnlyModel) {
+      // Text-only model: use OCR text (must have extractedText)
+      if (!extractedText) {
+        throw new Error('GPT-OSS text-only model requires OCR extracted text');
+      }
+      
       try {
         const response = await client.chat.completions.create({
           model,
@@ -153,43 +167,23 @@ export class GroqProvider implements AIProvider {
       } catch (error: any) {
         const duration = Date.now() - startTime;
         
-        // Detect rate limiting - switch to Scout and retry immediately
+        // Detect rate limiting - switch to GPT-OSS + OCR and retry
         if (error.status === 429 || error.code === 'rate_limit_exceeded') {
           console.error(`[Groq] Rate limit hit after ${duration}ms on model: ${model}`);
           
-          // If we were using Maverick, switch to Scout and retry
+          // If we were using Maverick, switch to GPT-OSS + OCR and retry
           if (model === API.GROQ_MODELS.MAVERICK_VISION) {
             this.handleRateLimit();
-            console.log('[Groq] Retrying immediately with Scout model...');
             
-            // Retry with Scout model - add extra emphasis on accuracy
-            const scoutSystemMessage = `${systemMessage}
-
-⚠️ CRITICAL: You are a backup model. Be EXTRA CAREFUL with your answers.
-- Double-check your calculations
-- Think step-by-step before answering
-- If unsure, explain your reasoning clearly
-- For Python questions, trace through the code line by line
-- For MCQs, verify your answer matches the question exactly`;
-
-            const retryStartTime = Date.now();
-            const response = await client.chat.completions.create({
-              model: API.GROQ_MODELS.SCOUT_VISION,
-              messages: [
-                { role: "system", content: scoutSystemMessage },
-                { role: "user", content }
-              ],
-              max_tokens: 2000,
-              temperature: 0.1 // Lower temperature for more deterministic answers
-            }, { signal });
+            // Show error notification to user
+            console.log('[Groq] ⚠️ Maverick rate-limited. Falling back to GPT-OSS + OCR...');
             
-            const retryDuration = Date.now() - retryStartTime;
-            console.log(`[Groq] ✓ Scout fallback succeeded in ${retryDuration}ms`);
-            console.log(`[Groq] ⚠️ Using Scout model - answer accuracy may be lower than Maverick`);
-            
-            return response.choices[0].message.content || "";
+            // We need the screenshot paths, not base64. This is a limitation.
+            // Throw an error and let ProcessingHelper handle it with OCR
+            console.log('[Groq] Switching to OCR extraction mode...');
+            throw new Error('RATE_LIMIT_USE_OCR_FALLBACK');
           } else {
-            // Already using Scout, can't fallback further
+            // Already using GPT-OSS, can't fallback further
             throw new Error('Groq API rate limit exceeded on fallback model. Please wait a moment.');
           }
         }
@@ -230,8 +224,12 @@ export class GroqProvider implements AIProvider {
     // Check if this is a text-only model
     const isTextOnlyModel = model.includes('gpt-oss');
 
-    if (isTextOnlyModel && extractedText) {
-      // Text-only model: use OCR text
+    if (isTextOnlyModel) {
+      // Text-only model: use OCR text (must have extractedText)
+      if (!extractedText) {
+        throw new Error('GPT-OSS text-only model requires OCR extracted text');
+      }
+      
       messages.push({
         role: "user",
         content: `${prompt}\n\nExtracted text from image:\n${extractedText}`
@@ -273,36 +271,17 @@ export class GroqProvider implements AIProvider {
     } catch (error: any) {
       const duration = Date.now() - startTime;
       
-      // Detect rate limiting - switch to Scout and retry immediately
+      // Detect rate limiting - switch to GPT-OSS + OCR
       if (error.status === 429 || error.code === 'rate_limit_exceeded') {
         console.error(`[Groq] Rate limit hit after ${duration}ms on debug call`);
         
-        // If we were using Maverick, switch to Scout and retry
+        // If we were using Maverick, switch to GPT-OSS + OCR
         if (model === API.GROQ_MODELS.MAVERICK_VISION) {
           this.handleRateLimit();
-          console.log('[Groq] Retrying debug call with Scout model...');
+          console.log('[Groq] ⚠️ Maverick rate-limited in debug. Falling back to GPT-OSS + OCR...');
           
-          // Retry with Scout model - add extra emphasis on accuracy
-          // Update system message for Scout
-          messages[0].content = `${messages[0].content}
-
-⚠️ CRITICAL: You are a backup model. Be EXTRA CAREFUL with your debugging.
-- Double-check your fixes
-- Think step-by-step before providing solutions
-- Verify your code changes are correct`;
-
-          const retryStartTime = Date.now();
-          const response = await client.chat.completions.create({
-            model: API.GROQ_MODELS.SCOUT_VISION,
-            messages,
-            max_tokens: 2000,
-            temperature: 0.1 // Lower temperature for more deterministic answers
-          }, { signal });
-          
-          const retryDuration = Date.now() - retryStartTime;
-          console.log(`[Groq] ✓ Scout fallback succeeded in ${retryDuration}ms`);
-          
-          return response.choices[0].message.content || "";
+          // Throw special error to let ProcessingHelper handle OCR extraction
+          throw new Error('RATE_LIMIT_USE_OCR_FALLBACK');
         } else {
           throw new Error('Groq API rate limit exceeded on fallback model. Please wait a moment.');
         }

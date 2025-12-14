@@ -418,7 +418,10 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </div>
 
                         {/* Mode & Model */}
-
+                        <div className="space-y-2">
+                          <h4 className="text-[10px] text-white/50 uppercase tracking-wider">Mode</h4>
+                          <ShortcutRow label="Toggle Mode (MCQ/Coding)" keys={[COMMAND_KEY, "/"]} />
+                        </div>
 
                         {/* Copy */}
                         <div className="space-y-2">

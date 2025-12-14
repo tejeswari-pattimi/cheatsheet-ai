@@ -1,4 +1,4 @@
-export interface ElectronAPI {
+interface ElectronAPI {
   // Original methods
   openSubscriptionPortal: (authData: {
     id: string
@@ -54,15 +54,20 @@ export interface ElectronAPI {
   getPlatform: () => string
   
   // New methods for OpenAI integration
-  getConfig: () => Promise<{ apiKey: string; model: string }>
-  updateConfig: (config: { apiKey?: string; model?: string }) => Promise<boolean>
+  getConfig: () => Promise<{ apiKey: string; model: string; mode?: string; groqModel?: string; solutionModel?: string }>
+  updateConfig: (config: { apiKey?: string; model?: string; mode?: string; groqModel?: string; solutionModel?: string; language?: string; opacity?: number }) => Promise<boolean>
+  getFallbackStatus: () => Promise<{ isUsingFallback: boolean }>
   checkApiKey: () => Promise<boolean>
   validateApiKey: (apiKey: string) => Promise<{ valid: boolean; error?: string }>
   openLink: (url: string) => void
   onApiKeyInvalid: (callback: () => void) => () => void
   removeListener: (eventName: string, callback: (...args: any[]) => void) => void
+  onModeChanged: (callback: (data: { mode: string; icon: string; description: string }) => void) => () => void
   onModelChanged: (callback: (data: { model: string; provider: string }) => void) => () => void
+  onModelFallbackStatus: (callback: (data: { isUsingFallback: boolean; remainingSeconds: number }) => void) => () => void
   onCopyCodeToClipboard: (callback: () => void) => () => void
+  onCopyHtmlToClipboard: (callback: () => void) => () => void
+  onCopyCssToClipboard: (callback: () => void) => () => void
   storeProcessedClipboard?: (text: string) => void
 }
 

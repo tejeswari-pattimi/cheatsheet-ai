@@ -10,7 +10,6 @@ import { ProblemStatementData } from "../types/solutions"
 import SolutionCommands from "../components/Solutions/SolutionCommands"
 import Debug from "./Debug"
 import { useToast } from "../contexts/toast"
-import { COMMAND_KEY } from "../utils/platform"
 import { frontendPerformance } from "../utils/frontend-performance"
 
 // Simple markdown renderer for reasoning text
@@ -343,10 +342,8 @@ const Solutions: React.FC<SolutionsProps> = ({
         // Reset screenshots
         setExtraScreenshots([])
 
-        // After a small delay, clear the resetting state
-        setTimeout(() => {
-          setIsResetting(false)
-        }, 0)
+        // Clear resetting state immediately
+        setIsResetting(false)
       }),
       window.electronAPI.onSolutionStart(() => {
         // Every time processing starts, reset relevant states
@@ -511,8 +508,13 @@ const Solutions: React.FC<SolutionsProps> = ({
         let dataToCopy = ""
         let message = "Code copied to clipboard"
         
+        // For MCQ mode, copy everything after "FINAL ANSWER:"
+        if (questionType === "multiple_choice" && finalAnswer) {
+          dataToCopy = finalAnswer
+          message = "Answer copied to clipboard"
+        }
         // For web dev questions, prefer the separate HTML field
-        if (questionType === "web_dev" && htmlData) {
+        else if (questionType === "web_dev" && htmlData) {
           dataToCopy = htmlData
           message = "HTML copied to clipboard"
         } 
@@ -527,13 +529,9 @@ const Solutions: React.FC<SolutionsProps> = ({
         }
         
         if (dataToCopy) {
-          // Process the code for Ctrl+Shift+V: keep indentation intact
-          // The ClipboardTyper will handle IDE auto-indentation with smart backspacing
-          const processedForTyping = dataToCopy.split('\n').map(line => line.trimStart()).join('\n')
-
-          
-          // Send processed version to main process for Ctrl+Shift+V
-          window.electronAPI.storeProcessedClipboard?.(processedForTyping)
+          // Send the code AS-IS to main process for Ctrl+Shift+V
+          // The ClipboardTyper will handle trimming and smart backspacing based on original indentation
+          window.electronAPI.storeProcessedClipboard?.(dataToCopy)
           
           // Try multiple clipboard methods for better reliability
           try {
@@ -580,7 +578,7 @@ const Solutions: React.FC<SolutionsProps> = ({
     return () => {
       cleanup()
     }
-  }, [solutionData, htmlData, questionType, showToast])
+  }, [solutionData, htmlData, questionType, finalAnswer, showToast])
 
   // Listen for copy CSS event from global shortcut (Ctrl+Shift+D)
   useEffect(() => {
@@ -715,7 +713,7 @@ const Solutions: React.FC<SolutionsProps> = ({
           <div className="space-y-3 px-4 py-3">
           {/* Conditionally render the screenshot queue if solutionData is available */}
           {solutionData && (
-            <div className="bg-transparent w-fit">
+            <div className="bg-transparent">
               <div className="pb-3">
                 <div className="space-y-3 w-fit">
                   <ScreenshotQueue

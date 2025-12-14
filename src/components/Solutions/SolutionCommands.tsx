@@ -42,18 +42,14 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   const { showToast } = useToast()
 
   useEffect(() => {
-    // Use a small delay to prevent flickering during transitions
-    const timer = setTimeout(() => {
-      if (onTooltipVisibilityChange) {
-        let tooltipHeight = 0
-        if (tooltipRef.current && isTooltipVisible) {
-          tooltipHeight = tooltipRef.current.offsetHeight + 10
-        }
-        onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
+    // Immediate update - no delay needed
+    if (onTooltipVisibilityChange) {
+      let tooltipHeight = 0
+      if (tooltipRef.current && isTooltipVisible) {
+        tooltipHeight = tooltipRef.current.offsetHeight + 10
       }
-    }, 50)
-    
-    return () => clearTimeout(timer)
+      onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
+    }
   }, [isTooltipVisible, onTooltipVisibilityChange])
 
   // Cleanup timeout on unmount
@@ -75,10 +71,10 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   }
 
   const handleMouseLeave = () => {
-    // Add a small delay before hiding to prevent flickering
+    // Minimal delay before hiding to prevent accidental closes
     hoverTimeoutRef.current = setTimeout(() => {
       setIsTooltipVisible(false)
-    }, 100)
+    }, 50)
   }
 
   return (
@@ -244,12 +240,14 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
             {isTooltipVisible && (
               <div
                 ref={tooltipRef}
-                className="absolute top-full right-0 mt-2 w-80"
-                style={{ zIndex: 100 }}
+                className="fixed"
+                style={{ 
+                  zIndex: 100,
+                  right: '30px',
+                  top: '60px'
+                }}
               >
-                {/* Add transparent bridge */}
-                <div className="absolute -top-2 right-0 w-full h-2" />
-                <div className="p-3 text-xs bg-black/80 backdrop-blur-md rounded-lg border border-white/10 text-white/90 shadow-lg">
+                <div className="p-3 text-xs bg-black/80 backdrop-blur-md rounded-lg border border-white/10 text-white/90 shadow-lg w-[360px]">
                   <div className="space-y-4">
                     <h3 className="font-medium whitespace-nowrap">
                       Keyboard Shortcuts

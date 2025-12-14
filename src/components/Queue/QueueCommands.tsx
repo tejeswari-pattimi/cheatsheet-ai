@@ -26,20 +26,108 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { showToast } = useToast()
   const [currentMode, setCurrentMode] = useState<'mcq' | 'coding'>('coding')
+  const [currentModel, setCurrentModel] = useState<string>('maverick')
+  const [isUsingFallback, setIsUsingFallback] = useState<boolean>(false)
+  const [shouldBlink, setShouldBlink] = useState<boolean>(false)
+  const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 
 
-  // Load current mode on mount
+  // Load current mode and model on mount
   useEffect(() => {
-    const loadMode = async () => {
+    const loadConfig = async () => {
       try {
         const config = await window.electronAPI.getConfig()
         setCurrentMode(config.mode || 'coding')
+        // Determine model name from config
+        const modelName = config.groqModel || config.solutionModel || config.model || ''
+        if (modelName.includes('maverick')) {
+          setCurrentModel('maverick')
+        } else if (modelName.includes('gpt') || modelName.includes('120b')) {
+          setCurrentModel('gpt-oss')
+        } else {
+          setCurrentModel('maverick')
+        }
+        
+        // Check current fallback status
+        try {
+          const fallbackStatus = await window.electronAPI.getFallbackStatus()
+          setIsUsingFallback(fallbackStatus.isUsingFallback)
+          console.log('[UI] Initial fallback status:', fallbackStatus.isUsingFallback)
+        } catch (fallbackError) {
+          console.warn('[UI] Could not get initial fallback status:', fallbackError)
+          // Default to false if we can't get the status
+          setIsUsingFallback(false)
+        }
       } catch (error) {
-        console.error("Failed to load mode:", error)
+        console.error("Failed to load config:", error)
       }
     }
-    loadMode()
+    loadConfig()
+  }, [])
+
+  // Listen for mode changes from keyboard shortcut (Ctrl+/)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onModeChanged((data: { mode: string; icon: string; description: string }) => {
+      setCurrentMode(data.mode as 'mcq' | 'coding')
+    })
+    return () => cleanup()
+  }, [])
+
+  // Listen for model changes from keyboard shortcut (Ctrl+\)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onModelChanged((data: { model: string; provider: string }) => {
+      if (data.model.includes('maverick')) {
+        setCurrentModel('maverick')
+      } else if (data.model.includes('gpt') || data.model.includes('120b')) {
+        setCurrentModel('gpt-oss')
+      }
+    })
+    return () => cleanup()
+  }, [])
+
+  // Listen for fallback status changes (rate limiting)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onModelFallbackStatus((data: { isUsingFallback: boolean; remainingSeconds: number }) => {
+      setIsUsingFallback(data.isUsingFallback)
+      
+      if (data.isUsingFallback) {
+        console.log(`[UI] Fallback active: ${data.remainingSeconds}s remaining`)
+        
+        // Start blinking animation
+        setShouldBlink(true)
+        
+        // Clear any existing timer
+        if (blinkTimerRef.current) {
+          clearTimeout(blinkTimerRef.current)
+        }
+        
+        // Stop blinking after 30 seconds (same as cooldown)
+        blinkTimerRef.current = setTimeout(() => {
+          setShouldBlink(false)
+          console.log('[UI] Blink animation stopped after 30s')
+        }, 30000)
+      } else {
+        console.log('[UI] Fallback ended, back to normal model')
+        setShouldBlink(false)
+        
+        // When fallback ends, switch back to Maverick
+        setCurrentModel('maverick')
+        
+        // Clear timer if fallback ends early
+        if (blinkTimerRef.current) {
+          clearTimeout(blinkTimerRef.current)
+          blinkTimerRef.current = null
+        }
+      }
+    })
+    
+    return () => {
+      cleanup()
+      if (blinkTimerRef.current) {
+        clearTimeout(blinkTimerRef.current)
+      }
+    }
   }, [])
 
   // Toggle mode function
@@ -59,6 +147,32 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     }
   }
 
+  // Toggle model function
+  const toggleModel = async () => {
+    const newModel = currentModel === 'maverick' ? 'gpt-oss' : 'maverick'
+    setCurrentModel(newModel)
+    
+    try {
+      const modelName = newModel === 'maverick' 
+        ? 'meta-llama/llama-4-maverick-17b-128e-instruct'
+        : 'openai/gpt-oss-120b'
+      
+      await window.electronAPI.updateConfig({ 
+        groqModel: modelName,
+        solutionModel: modelName 
+      })
+      
+      const modelInfo = newModel === 'maverick'
+        ? { name: 'Maverick', color: 'green' }
+        : { name: 'GPT OSS 120B', color: 'red' }
+      
+      showToast('Model Changed', `Switched to ${modelInfo.name}`, 'success')
+    } catch (error) {
+      console.error("Failed to update model:", error)
+      showToast('Error', 'Failed to change model', 'error')
+    }
+  }
+
   // Extract the repeated language selection logic into a separate function
   const extractLanguagesAndUpdate = (direction?: 'next' | 'prev') => {
     const hiddenRenderContainer = document.createElement('div');
@@ -74,7 +188,8 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       />
     );
     
-    setTimeout(() => {
+    // Use requestAnimationFrame for immediate DOM update
+    requestAnimationFrame(() => {
       const selectElement = hiddenRenderContainer.querySelector('select');
       if (selectElement) {
         const options = Array.from(selectElement.options);
@@ -97,20 +212,16 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       
       root.unmount();
       document.body.removeChild(hiddenRenderContainer);
-    }, 50);
+    });
   };
 
   useEffect(() => {
-    // Use a small delay to prevent flickering during transitions
-    const timer = setTimeout(() => {
-      let tooltipHeight = 0
-      if (tooltipRef.current && isTooltipVisible) {
-        tooltipHeight = tooltipRef.current.offsetHeight + 10
-      }
-      onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
-    }, 50)
-    
-    return () => clearTimeout(timer)
+    // Immediate update - no delay needed
+    let tooltipHeight = 0
+    if (tooltipRef.current && isTooltipVisible) {
+      tooltipHeight = tooltipRef.current.offsetHeight + 10
+    }
+    onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
   }, [isTooltipVisible, showAllShortcuts, onTooltipVisibilityChange])
 
   const handleSignOut = async () => {
@@ -124,9 +235,10 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       
       showToast('Success', 'Logged out successfully', 'success');
       
+      // Minimal delay to show toast before reload
       setTimeout(() => {
         window.location.reload();
-      }, 1500);
+      }, 500);
     } catch (err) {
       console.error("Error logging out:", err);
       showToast('Error', 'Failed to log out', 'error');
@@ -143,11 +255,11 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   }
 
   const handleMouseLeave = () => {
-    // Add a small delay before hiding to prevent flickering
+    // Minimal delay before hiding to prevent accidental closes
     hoverTimeoutRef.current = setTimeout(() => {
       setIsTooltipVisible(false)
       setShowAllShortcuts(false)
-    }, 100)
+    }, 50)
   }
 
   // Cleanup timeout on unmount
@@ -166,54 +278,94 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   return (
     <div>
       <div className="pt-2 w-fit">
-        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
-          {/* Mode Switcher Button */}
-          <div
-            className="flex items-center gap-2 px-2 py-1 cursor-pointer rounded hover:bg-white/10 transition-colors"
-            onClick={toggleMode}
-            title={`Switch to ${currentMode === 'mcq' ? 'Coding' : 'MCQ'} Mode`}
-          >
-            <span className="text-[14px]">{currentMode === 'mcq' ? '📝' : '💻'}</span>
-            <span className="text-[11px] font-semibold text-white/90">
-              {currentMode === 'mcq' ? 'MCQ' : 'Coding'}
-            </span>
-          </div>
-          <div className="h-4 w-px bg-white/20" />
+        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-1.5 px-3 flex items-center justify-center gap-3">
+          {/* Left side indicators - stacked vertically */}
+          <div className="flex flex-col gap-1.5 pr-2.5 border-r border-white/20">
+            {/* Mode Switcher Button - Top */}
+            <div
+              className="flex items-center justify-center cursor-pointer rounded hover:bg-white/10 transition-colors w-5 h-5"
+              onClick={toggleMode}
+              title={`Switch to ${currentMode === 'mcq' ? 'Coding' : 'MCQ'} Mode (${COMMAND_KEY}+/)`}
+            >
+              <span className="text-[14px]">{currentMode === 'mcq' ? '📝' : '💻'}</span>
+            </div>
 
-          {/* Model Indicator */}
-          <div className="flex items-center gap-2 px-2 py-1">
-            <span className="text-[14px]">🤖</span>
-            <span className="text-[11px] font-semibold text-white/90">Maverick</span>
-          </div>
-          <div className="h-4 w-px bg-white/20" />
-
-          {/* Quick Solve as primary action */}
-          <div
-            className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-yellow-500/20 transition-colors bg-yellow-500/10 border border-yellow-500/30"
-            style={{ width: '165px' }}
-            onClick={async () => {
-              try {
-                // Quick solve: Reset → Screenshot → Process
-                await window.electronAPI.triggerReset()
-                await new Promise(r => setTimeout(r, 100))
-                await window.electronAPI.triggerScreenshot()
-                await new Promise(r => setTimeout(r, 200))
-                await window.electronAPI.triggerProcessScreenshots()
-              } catch (error) {
-                showToast("Error", "Quick solve failed", "error")
+            {/* Model Indicator - Bottom - Clickable */}
+            <div 
+              className="flex items-center justify-center w-5 h-5 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={toggleModel}
+              title={
+                isUsingFallback 
+                  ? 'Rate Limited - Using GPT-OSS Fallback' 
+                  : `Current Model: ${currentModel === 'maverick' ? 'Maverick' : 'GPT OSS 120B'} (Click to switch, ${COMMAND_KEY}+\\)`
               }
-            }}
-          >
-            <span className="text-[11px] leading-none text-yellow-400 font-medium whitespace-nowrap">Quick Solve</span>
-            <div className="flex gap-1 ml-auto">
-              <button className="bg-yellow-500/20 rounded-md px-1.5 py-1 text-[11px] leading-none text-yellow-400">
-                {COMMAND_KEY}
-              </button>
-              <button className="bg-yellow-500/20 rounded-md px-1.5 py-1 text-[11px] leading-none text-yellow-400">
-                D
-              </button>
+            >
+              <div className={`w-2.5 h-2.5 rounded-full ${
+                isUsingFallback 
+                  ? `bg-red-500 shadow-lg shadow-red-500/50 ${shouldBlink ? 'animate-pulse' : ''}` 
+                  : currentModel === 'maverick' 
+                    ? 'bg-green-500 shadow-lg shadow-green-500/50' 
+                    : 'bg-orange-500 shadow-lg shadow-orange-500/50'
+              }`}></div>
             </div>
           </div>
+
+          {/* Quick Solve (MCQ + Maverick + Not Rate Limited) or Take Screenshot (other modes) */}
+          {currentMode === 'mcq' && currentModel === 'maverick' && !isUsingFallback ? (
+            <div
+              className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-yellow-500/20 transition-colors bg-yellow-500/10 border border-yellow-500/30"
+              style={{ width: '165px' }}
+              onClick={async () => {
+                try {
+                  // Quick solve: Reset → Screenshot → Process
+                  await window.electronAPI.triggerReset()
+                  await new Promise(resolve => setTimeout(resolve, 100))
+                  await window.electronAPI.triggerScreenshot()
+                  await new Promise(resolve => setTimeout(resolve, 200))
+                  await window.electronAPI.triggerProcessScreenshots()
+                } catch (error) {
+                  showToast("Error", "Quick solve failed", "error")
+                }
+              }}
+            >
+              <span className="text-[11px] leading-none text-yellow-400 font-medium whitespace-nowrap">Quick Solve</span>
+              <div className="flex gap-1 ml-auto">
+                <button className="bg-yellow-500/20 rounded-md px-1.5 py-1 text-[11px] leading-none text-yellow-400">
+                  {COMMAND_KEY}
+                </button>
+                <button className="bg-yellow-500/20 rounded-md px-1.5 py-1 text-[11px] leading-none text-yellow-400">
+                  D
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors"
+              style={{ width: '165px' }}
+              onClick={async () => {
+                try {
+                  const result = await window.electronAPI.triggerScreenshot()
+                  if (!result.success) {
+                    console.error("Failed to take screenshot:", result.error)
+                    showToast("Error", "Failed to take screenshot", "error")
+                  }
+                } catch (error) {
+                  console.error("Error taking screenshot:", error)
+                  showToast("Error", "Failed to take screenshot", "error")
+                }
+              }}
+            >
+              <span className="text-[11px] leading-none text-white/90 font-medium whitespace-nowrap">Take Screenshot</span>
+              <div className="flex gap-1 ml-auto">
+                <button className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+                  {COMMAND_KEY}
+                </button>
+                <button className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+                  H
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Show screenshot count if any */}
           {screenshotCount > 0 && (
@@ -283,11 +435,14 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             {isTooltipVisible && (
               <div
                 ref={tooltipRef}
-                className="absolute top-full mt-2"
-                style={{ zIndex: 100, right: '-20px', width: '360px', minWidth: '360px' }}
+                className="fixed"
+                style={{ 
+                  zIndex: 100,
+                  left:'0px',
+                  top: '60px'
+                }}
               >
-                <div className="absolute -top-2 right-0 w-full h-2" />
-                <div className="p-3 text-xs bg-black/80 backdrop-blur-md rounded-lg border border-white/10 text-white/90 shadow-lg">
+                <div className="p-3 text-xs bg-black/80 backdrop-blur-md rounded-lg border border-white/10 text-white/90 shadow-lg w-[360px]">
                   <div className="space-y-4">
                     {!showAllShortcuts ? (
                       <>
@@ -426,7 +581,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         {/* Copy */}
                         <div className="space-y-2">
                           <h4 className="text-[10px] text-white/50 uppercase tracking-wider">Copy</h4>
-                          <ShortcutRow label="Copy HTML/Code" keys={[COMMAND_KEY, "⇧", "C"]} />
+                          <ShortcutRow label="Copy Answer/Code" keys={[COMMAND_KEY, "⇧", "C"]} />
                           <ShortcutRow label="Copy CSS" keys={[COMMAND_KEY, "⇧", "D"]} />
                         </div>
 

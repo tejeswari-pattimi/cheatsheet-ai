@@ -122,6 +122,22 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     return deps.getImagePreview(path)
   })
 
+  // Get current model fallback status
+  ipcMain.handle("get-fallback-status", () => {
+    try {
+      if (deps.processingHelper) {
+        const groqProvider = (deps.processingHelper as any).groqProvider;
+        if (groqProvider && typeof groqProvider.isUsingFallbackModel === 'function') {
+          return { isUsingFallback: groqProvider.isUsingFallbackModel() };
+        }
+      }
+      return { isUsingFallback: false };
+    } catch (error) {
+      console.error('Error getting fallback status:', error);
+      return { isUsingFallback: false };
+    }
+  })
+
   // Screenshot processing handlers
   ipcMain.handle("process-screenshots", async () => {
     // Check for API key before processing

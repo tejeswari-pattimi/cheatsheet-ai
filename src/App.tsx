@@ -91,11 +91,11 @@ function App() {
         const hasKey = await window.electronAPI.checkApiKey()
         setHasApiKey(hasKey)
         
-        // If no API key is found, show the settings dialog after a short delay
+        // If no API key is found, show the settings dialog immediately
         if (!hasKey) {
           setTimeout(() => {
             setIsSettingsOpen(true)
-          }, 1000)
+          }, 200)
         }
       } catch (error) {
         console.error("Failed to check API key:", error)
@@ -110,7 +110,7 @@ function App() {
   // Initialize dropdown handler
   useEffect(() => {
     if (isInitialized) {
-      // Process all types of dropdown elements with a shorter delay
+      // Process all types of dropdown elements immediately
       const timer = setTimeout(() => {
         // Find both native select elements and custom dropdowns
         const selectElements = document.querySelectorAll('select');
@@ -266,6 +266,7 @@ function App() {
             }
             variant={toastState.variant}
             duration={2000}
+            key={`${toastState.title}-${toastState.description}`}
           >
             <ToastTitle>{toastState.title}</ToastTitle>
             <ToastDescription>{toastState.description}</ToastDescription>

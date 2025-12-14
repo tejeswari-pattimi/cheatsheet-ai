@@ -67,19 +67,23 @@ export class ClipboardTyper {
 
       console.log(`Using ${this.processedClipboard ? 'processed' : 'regular'} clipboard`)
 
-      const lines = this.processedClipboard
-        ? clipboardText.split('\n')
-        : clipboardText.split('\n').map(line => line.trimStart())
+      // Parse lines and calculate original indentation BEFORE trimming
+      const rawLines = clipboardText.split('\n')
+      const linesWithIndent = rawLines.map(line => {
+        const indent = line.length - line.trimStart().length
+        const content = line.trimStart()
+        return { indent, content }
+      })
 
-      console.log(`Processing ${lines.length} lines from clipboard`)
-      console.log('First 3 lines:', lines.slice(0, 3).map(l => `"${l}"`))
+      console.log(`Processing ${linesWithIndent.length} lines from clipboard`)
+      console.log('First 3 lines:', linesWithIndent.slice(0, 3).map(l => `indent:${l.indent} "${l.content}"`))
       this.isTyping = true
       this.shouldStopTyping = false
 
       // Register temporary stop shortcuts
       const stopShortcuts = [
         'Escape',
-        'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'
+        'F3'
       ]
 
       stopShortcuts.forEach(key => {
@@ -91,16 +95,16 @@ export class ClipboardTyper {
         })
       })
 
-      // Small delay to allow user to focus target window
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Delay to allow user to focus target window and position cursor
+      await new Promise(resolve => setTimeout(resolve, 2000))
 
       keyboard.config.autoDelayMs = this.typingSpeed
 
-      let previousIndent = 0 // Track indentation of previous line
+      // let previousIndent = 0 // Track indentation of previous line (not currently used)
 
-      for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      for (let lineIndex = 0; lineIndex < linesWithIndent.length; lineIndex++) {
         if (this.shouldStopTyping) {
-          console.log(`Typing stopped at line ${lineIndex + 1}/${lines.length}`)
+          console.log(`Typing stopped at line ${lineIndex + 1}/${linesWithIndent.length}`)
           break
         }
 
@@ -110,29 +114,10 @@ export class ClipboardTyper {
 
         if (this.shouldStopTyping) break
 
-        const line = lines[lineIndex]
-        
-        // Calculate current line's indentation (leading spaces)
-        const currentIndent = line.length - line.trimStart().length
-        
-        // If current line has less indentation than previous, press backspace
-        // This removes IDE's auto-indentation
-        if (lineIndex > 0 && currentIndent < previousIndent) {
-          const backspaceCount = previousIndent - currentIndent
-          console.log(`Line ${lineIndex + 1}: Reducing indent from ${previousIndent} to ${currentIndent} (${backspaceCount} backspaces)`)
-          
-          for (let i = 0; i < backspaceCount; i++) {
-            if (this.shouldStopTyping) break
-            await keyboard.type(Key.Backspace)
-            await new Promise(resolve => setTimeout(resolve, 20)) // Small delay between backspaces
-          }
-        }
-        
-        // Update previous indent for next iteration
-        previousIndent = currentIndent
+        const { indent: currentIndent, content } = linesWithIndent[lineIndex]
 
-        // Type the line content
-        for (let charIndex = 0; charIndex < line.length; charIndex++) {
+        // Type the line content (already trimmed)
+        for (let charIndex = 0; charIndex < content.length; charIndex++) {
           if (this.shouldStopTyping) break
 
           while (this.isPaused && !this.shouldStopTyping) {
@@ -140,14 +125,41 @@ export class ClipboardTyper {
           }
 
           if (!this.shouldStopTyping) {
-            await keyboard.type(line[charIndex])
+            await keyboard.type(content[charIndex])
           }
         }
 
         // Press Enter to go to next line (except for last line)
-        if (lineIndex < lines.length - 1 && !this.shouldStopTyping) {
+        if (lineIndex < linesWithIndent.length - 1 && !this.shouldStopTyping) {
+          // Wait a bit after typing the line content before pressing Enter
+          await new Promise(resolve => setTimeout(resolve, 50))
+          
           await keyboard.type(Key.Enter)
+          
+          // NOW check if next line needs less indentation and send backspaces
+          const nextLineIndent = linesWithIndent[lineIndex + 1].indent
+          if (nextLineIndent < currentIndent) {
+            // IDE treats indentation as single units (e.g., 4 spaces = 1 tab stop)
+            // Calculate how many indentation levels to go back
+            const indentDiff = currentIndent - nextLineIndent
+            const backspaceCount = Math.ceil(indentDiff / 4) // Assuming 4 spaces per indent level
+            
+            console.log(`Line ${lineIndex + 2}: Reducing indent from ${currentIndent} to ${nextLineIndent} (${indentDiff} spaces = ${backspaceCount} backspace)`)
+            
+            // Wait longer for IDE to auto-indent
+            await new Promise(resolve => setTimeout(resolve, 100))
+            
+            console.log(`Sending ${backspaceCount} backspace(s)`)
+            for (let i = 0; i < backspaceCount; i++) {
+              if (this.shouldStopTyping) break
+              await keyboard.type(Key.Backspace)
+              await new Promise(resolve => setTimeout(resolve, 30))
+            }
+          }
         }
+        
+        // Update previous indent for next iteration (not currently used)
+        // previousIndent = currentIndent
       }
 
       if (!this.shouldStopTyping) {
@@ -164,7 +176,7 @@ export class ClipboardTyper {
       // Unregister temp shortcuts
       const stopShortcuts = [
         'Escape',
-        'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'
+        'F3'
       ]
 
       stopShortcuts.forEach(key => {

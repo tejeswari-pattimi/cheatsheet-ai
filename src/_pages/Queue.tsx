@@ -21,8 +21,6 @@ interface QueueProps {
   credits: number
   currentLanguage: string
   setLanguage: (language: string) => void
-  currentModel: string
-  currentProvider: string
 }
 
 const Queue: React.FC<QueueProps> = ({
@@ -30,8 +28,6 @@ const Queue: React.FC<QueueProps> = ({
   credits,
   currentLanguage,
   setLanguage,
-  currentModel,
-  currentProvider
 }) => {
   const { showToast } = useToast()
 
@@ -137,12 +133,14 @@ const Queue: React.FC<QueueProps> = ({
   return (
     <div ref={contentRef} className={`bg-transparent w-1/2`}>
       <div className="px-4 py-3">
-        <div className="space-y-3 w-fit">
-          <ScreenshotQueue
-            isLoading={false}
-            screenshots={screenshots}
-            onDeleteScreenshot={handleDeleteScreenshot}
-          />
+        <div className="space-y-3">
+          <div className="w-fit">
+            <ScreenshotQueue
+              isLoading={false}
+              screenshots={screenshots}
+              onDeleteScreenshot={handleDeleteScreenshot}
+            />
+          </div>
 
           <QueueCommands
             onTooltipVisibilityChange={handleTooltipVisibilityChange}

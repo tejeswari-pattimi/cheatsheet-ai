@@ -1,4 +1,5 @@
 import { OpenAI } from "openai"
+import { BrowserWindow } from "electron"
 import { configHelper } from "../../ConfigHelper"
 import { API } from "../../constants/app-constants"
 import { AIProvider } from "./AIProvider.interface"
@@ -40,6 +41,8 @@ export class GroqProvider implements AIProvider {
       console.log('[Groq] Cooldown period ended, switching back to Maverick model');
       this.isUsingFallback = false;
       this.fallbackUntil = 0;
+      // Notify frontend that fallback is over
+      this.notifyFallbackStatus(false);
     }
     
     // If using fallback, return GPT-OSS text model
@@ -66,6 +69,30 @@ export class GroqProvider implements AIProvider {
       console.log(`[Groq] ⚠️ Rate limit detected! Switching to GPT-OSS + OCR for ${cooldownSeconds}s`);
       console.log(`[Groq] ⚠️ Using OCR text extraction with GPT-OSS-120B model`);
       console.log(`[Groq] ℹ️ Groq uses sliding window rate limits - waiting ${cooldownSeconds}s before retrying Maverick`);
+      
+      // Notify frontend about fallback status
+      this.notifyFallbackStatus(true);
+    }
+  }
+  
+  /**
+   * Notify frontend about fallback status change
+   */
+  private notifyFallbackStatus(isUsingFallback: boolean): void {
+    try {
+      const mainWindow = BrowserWindow.getAllWindows()[0];
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const payload = { 
+          isUsingFallback,
+          remainingSeconds: isUsingFallback ? Math.ceil((this.fallbackUntil - Date.now()) / 1000) : 0
+        };
+        console.log('[Groq] Sending fallback status to frontend:', payload);
+        mainWindow.webContents.send('model-fallback-status', payload);
+      } else {
+        console.warn('[Groq] Cannot send fallback status - no main window available');
+      }
+    } catch (error) {
+      console.error('[Groq] Error notifying fallback status:', error);
     }
   }
 

@@ -20,49 +20,8 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
   const [view, setView] = useState<"queue" | "solutions" | "debug">("queue")
   const containerRef = useRef<HTMLDivElement>(null)
   const { showToast } = useToast()
-  const [currentModel, setCurrentModel] = useState<string>("")
-  const [currentProvider, setCurrentProvider] = useState<string>("")
 
-  // Load current model on mount
-  useEffect(() => {
-    const loadModel = async () => {
-      try {
-        const config = await window.electronAPI.getConfig()
-        setCurrentModel(config.solutionModel || config.model || "")
-        setCurrentProvider(config.apiProvider || "")
-      } catch (error) {
-        console.error("Failed to load model:", error)
-      }
-    }
-    loadModel()
-  }, [])
 
-  // Listen for model changes
-  useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-    
-    const cleanup = window.electronAPI.onModelChanged((data: { model: string; provider: string }) => {
-      // Clear any pending timeout to prevent duplicate toasts
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-      
-      setCurrentModel(data.model)
-      setCurrentProvider(data.provider)
-      
-      // Debounce the toast to prevent flashing
-      timeoutId = setTimeout(() => {
-        showToast("Model Changed", `Switched to ${data.model}`, "success")
-      }, 100)
-    })
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-      cleanup()
-    }
-  }, [showToast])
 
   // Listen for mode changes (MCQ/General)
   useEffect(() => {
@@ -74,19 +33,10 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
         clearTimeout(timeoutId)
       }
       
-      // Update provider based on mode
-      const newProvider = "groq"
-      setCurrentProvider(newProvider)
-      
-      // Also fetch the current model for this mode
-      window.electronAPI.getConfig().then((config: any) => {
-        setCurrentModel(config.groqModel || "meta-llama/llama-4-maverick-17b-128e-instruct")
-      })
-      
-      // Debounce the toast to prevent flashing
+      // Minimal debounce to prevent duplicate toasts
       timeoutId = setTimeout(() => {
         showToast(`${data.icon} Mode Changed`, data.description, "success")
-      }, 100)
+      }, 50)
     })
 
     return () => {
@@ -148,7 +98,7 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
     // Set a fallback timer to ensure dimensions are set even if content isn't fully loaded
     const fallbackTimer = setTimeout(() => {
       window.electronAPI?.updateContentDimensions({ width: 800, height: 600 })
-    }, 500)
+    }, 200)
 
     const resizeObserver = new ResizeObserver(updateDimensions)
     resizeObserver.observe(containerRef.current)
@@ -162,8 +112,8 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
       characterData: true
     })
 
-    // Do another update after a delay to catch any late-loading content
-    const delayedUpdate = setTimeout(updateDimensions, 1000)
+    // Quick update after initial render to catch any late-loading content
+    const delayedUpdate = setTimeout(updateDimensions, 300)
 
     return () => {
       resizeObserver.disconnect()
@@ -229,8 +179,6 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
           credits={credits}
           currentLanguage={currentLanguage}
           setLanguage={setLanguage}
-          currentModel={currentModel}
-          currentProvider={currentProvider}
         />
       ) : view === "solutions" ? (
         <Solutions

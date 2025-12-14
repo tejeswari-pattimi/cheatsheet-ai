@@ -311,8 +311,8 @@ export class ShortcutsHelper {
     ShortcutsManager.register("CommandOrControl+Shift+V", () => this.clipboardTyper.typeClipboardContent())
     ShortcutsManager.register("CommandOrControl+Shift+X", () => this.clipboardTyper.stopTyping())
     ShortcutsManager.register("Alt+Backspace", () => this.clipboardTyper.togglePause())
-    ShortcutsManager.register("Alt+=", () => this.clipboardTyper.adjustTypingSpeed(-15))
-    ShortcutsManager.register("Alt+-", () => this.clipboardTyper.adjustTypingSpeed(15))
+    ShortcutsManager.register("F1", () => this.clipboardTyper.adjustTypingSpeed(-15)) // Faster
+    ShortcutsManager.register("F2", () => this.clipboardTyper.adjustTypingSpeed(15)) // Slower
 
     app.on("will-quit", () => {
       ShortcutsManager.unregisterAll()

@@ -198,6 +198,7 @@ RESPONSE FORMATS:
 - ✅ Use meaningful variable names
 - ✅ One logical operation per line (no semicolons)
 - ✅ Include all necessary code (imports, function definitions, etc.)
+- ✅ HANDLE INPUT/OUTPUT: If the problem requires input, use input() and handle it properly. Always print the output.
 
 CORRECT Example:
 **Explanation:**

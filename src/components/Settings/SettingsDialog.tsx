@@ -86,7 +86,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
         // Force reload the app to apply changes
         setTimeout(() => {
           window.location.reload();
-        }, 1500);
+        }, 500);
       }
     } catch (error) {
       console.error("Failed to save settings:", error);

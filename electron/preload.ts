@@ -215,6 +215,7 @@ const electronAPI = {
   getConfig: () => ipcRenderer.invoke("get-config"),
   updateConfig: (config: { apiKey?: string; model?: string; language?: string; opacity?: number }) => 
     ipcRenderer.invoke("update-config", config),
+  getFallbackStatus: () => ipcRenderer.invoke("get-fallback-status"),
   onShowSettings: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on("show-settings-dialog", subscription)
@@ -274,6 +275,16 @@ const electronAPI = {
     ipcRenderer.on("model-changed", subscription)
     return () => {
       ipcRenderer.removeListener("model-changed", subscription)
+    }
+  },
+  onModelFallbackStatus: (callback: (data: { isUsingFallback: boolean; remainingSeconds: number }) => void) => {
+    const subscription = (_: any, data: { isUsingFallback: boolean; remainingSeconds: number }) => {
+      console.log('[Preload] Received model-fallback-status event:', data)
+      callback(data)
+    }
+    ipcRenderer.on("model-fallback-status", subscription)
+    return () => {
+      ipcRenderer.removeListener("model-fallback-status", subscription)
     }
   },
   onShowErrorNotification: (callback: (data: { title: string; message: string }) => void) => {

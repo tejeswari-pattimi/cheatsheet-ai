@@ -7,7 +7,7 @@ import { ErrorHandler } from "./errors/ErrorHandler"
 import { performanceMonitor } from "./utils/PerformanceMonitor"
 import { GroqProvider } from "./processing/ai-providers/GroqProvider"
 import { API } from "./constants/app-constants"
-import { MCQParser, WebDevParser, PythonParser, TextParser, ResponseParser } from "./processing/parsers/Parsers"
+import { MCQParser, WebDevParser, PythonParser, TextParser } from "./processing/parsers/Parsers"
 import { getSystemPrompt } from "./processing/prompts/system-prompts"
 
 export class ProcessingHelper {
@@ -17,8 +17,8 @@ export class ProcessingHelper {
   // AI Providers
   private groqProvider: GroqProvider;
 
-  // Parsers
-  private parsers: ResponseParser[] = [];
+  // Parsers (initialized in constructor but not stored as we use them directly)
+  // private parsers: ResponseParser[] = [];
 
   // Conversation history for debugging
   private conversationHistory: Array<{ role: string, content: any }> = []
@@ -37,13 +37,13 @@ export class ProcessingHelper {
 
     this.groqProvider = new GroqProvider();
 
-    // Initialize Parsers
-    this.parsers = [
-      new MCQParser(),
-      new WebDevParser(),
-      new PythonParser(),
-      new TextParser() // Fallback
-    ];
+    // Parsers are used directly in parseResponse method, no need to store them
+    // this.parsers = [
+    //   new MCQParser(),
+    //   new WebDevParser(),
+    //   new PythonParser(),
+    //   new TextParser() // Fallback
+    // ];
   }
 
   public cancelOngoingRequests(): void {
@@ -184,9 +184,6 @@ export class ProcessingHelper {
 
       // Call appropriate API based on mode (fallback handled in GroqProvider)
       performanceMonitor.startTimer('API Call');
-
-      // Check if we're using fallback before the call
-      const wasUsingFallback = this.groqProvider.isUsingFallbackModel();
 
       // Use appropriate method based on model type
       try {
@@ -378,9 +375,6 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
 
       // Call API (fallback handled in GroqProvider)
       performanceMonitor.startTimer('Debug API Call');
-
-      // Check if we're using fallback before the call
-      const wasUsingFallback = this.groqProvider.isUsingFallbackModel();
 
       // Use Groq with history
       const history = this.conversationHistory.map(h => ({

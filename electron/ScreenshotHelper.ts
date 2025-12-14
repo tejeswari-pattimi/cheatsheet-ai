@@ -300,8 +300,8 @@ export class ScreenshotHelper {
     console.log("Taking screenshot in view:", this.view);
     hideMainWindow();
 
-    // Increased delay for window hiding on Windows
-    const hideDelay = process.platform === "win32" ? 500 : 300;
+    // Minimal delay to ensure window is hidden - OS needs time to update display
+    const hideDelay = process.platform === "win32" ? 100 : 50;
     await new Promise((resolve) => setTimeout(resolve, hideDelay));
 
     let screenshotPath = "";
@@ -366,8 +366,8 @@ export class ScreenshotHelper {
       console.error("Screenshot error:", error);
       throw error;
     } finally {
-      // Increased delay for showing window again
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Minimal delay before showing window
+      await new Promise((resolve) => setTimeout(resolve, 50));
       showMainWindow();
     }
 

@@ -85,7 +85,22 @@ export class ConfigHelper extends EventEmitter {
           return { ...this.defaultConfig };
         }
         
-
+        // Validate and fix model name if invalid
+        if (config.groqModel) {
+          const validModels = [
+            API.GROQ_MODELS.MAVERICK_VISION,
+            API.GROQ_MODELS.SCOUT_VISION,
+            API.GROQ_MODELS.GPT_OSS_TEXT
+          ];
+          
+          // Check if the model is invalid (like nvidia/llama-3.1-nemotron-70b-instruct)
+          if (!validModels.includes(config.groqModel)) {
+            console.warn(`Invalid model detected: ${config.groqModel}, resetting to default`);
+            config.groqModel = API.DEFAULT_GROQ_MODEL;
+            // Save the corrected config
+            this.saveConfig({ ...this.defaultConfig, ...config });
+          }
+        }
 
         // Decrypt keys
         if (config.groqApiKey) {

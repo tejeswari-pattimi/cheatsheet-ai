@@ -35,10 +35,10 @@ export function Header({ currentLanguage, setLanguage, onOpenSettings }: HeaderP
       
       showToast('Success', 'Logged out successfully', 'success');
       
-      // Reload the app after a short delay
+      // Reload the app after minimal delay to show toast
       setTimeout(() => {
         window.location.reload();
-      }, 1500);
+      }, 500);
     } catch (error) {
       console.error('Error logging out:', error);
       showToast('Error', 'Failed to log out', 'error');

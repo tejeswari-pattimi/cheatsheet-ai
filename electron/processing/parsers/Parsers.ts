@@ -9,14 +9,12 @@ export class MCQParser implements ResponseParser {
     let finalAnswerMatch = response.match(/FINAL ANSWER:\s*option\s+([\d,\s]+)\)\s*(.+?)$/im)
 
     let answer = "Answer not found"
-    let isOptionBased = false; // Track if answer has options
 
     if (finalAnswerMatch) {
       // Format: "FINAL ANSWER: option 2) True"
       const optionNumbers = finalAnswerMatch[1].trim()
       const optionValue = finalAnswerMatch[2].trim()
       answer = `option ${optionNumbers}) ${optionValue}`
-      isOptionBased = true
     } else {
       // Try letter-based options (A, B, C, D)
       finalAnswerMatch = response.match(/FINAL ANSWER:\s*([A-D](?:\s*,\s*[A-D])*)\s*(.*)$/im)
@@ -29,7 +27,6 @@ export class MCQParser implements ResponseParser {
           const choices = firstCapture.toUpperCase()
           const value = secondCapture ? secondCapture.trim() : ""
           answer = value ? `${choices} ${value}` : choices
-          isOptionBased = true
         }
       } else {
         // Fill-in-the-blank or "enter your answer" format
@@ -38,7 +35,6 @@ export class MCQParser implements ResponseParser {
 
         if (finalAnswerMatch) {
           answer = finalAnswerMatch[1].trim()
-          isOptionBased = false
         } else {
           // Fallback: try to find option format without "FINAL ANSWER:"
           finalAnswerMatch = response.match(/option\s+([\d,\s]+)\)\s*(.*)$/im)
@@ -47,7 +43,6 @@ export class MCQParser implements ResponseParser {
             const optionNumbers = finalAnswerMatch[1].trim()
             const optionValue = finalAnswerMatch[2].trim()
             answer = `option ${optionNumbers}) ${optionValue}`
-            isOptionBased = true
           }
         }
       }
@@ -182,8 +177,8 @@ export class PythonParser implements ResponseParser {
     
     // Try to extract structured explanation
     const questionAsksMatch = beforeCode.match(/\*\*Question asks:\*\*\s*(.+?)(?=\n|$)/i)
-    const approachMatch = beforeCode.match(/\*\*Approach:\*\*\s*(.+?)(?=\n|$)/i)
-    const conceptsMatch = beforeCode.match(/\*\*Key concepts:\*\*\s*(.+?)(?=\n|$)/i)
+    // const approachMatch = beforeCode.match(/\*\*Approach:\*\*\s*(.+?)(?=\n|$)/i)
+    // const conceptsMatch = beforeCode.match(/\*\*Key concepts:\*\*\s*(.+?)(?=\n|$)/i)
     
     // Fallback to old format
     const conceptMatch = response.match(/Main concept:\s*(.+?)(?=\n|```)/i)

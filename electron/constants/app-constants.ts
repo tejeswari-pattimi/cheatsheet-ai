@@ -3,8 +3,8 @@ export const WINDOW = {
   MIN_HEIGHT: 550,
   DEFAULT_WIDTH: 800,
   DEFAULT_HEIGHT: 600,
-  HIDE_DELAY_WINDOWS: 500,
-  HIDE_DELAY_OTHER: 300,
+  HIDE_DELAY_WINDOWS: 100,
+  HIDE_DELAY_OTHER: 50,
   MOVEMENT_STEP: 60,
   OPACITY_STEP: 0.1,
   MIN_OPACITY: 0.1,
@@ -27,7 +27,7 @@ export const API = {
     GPT_OSS_TEXT: 'openai/gpt-oss-120b'
   },
   DEFAULT_GROQ_MODEL: 'meta-llama/llama-4-maverick-17b-128e-instruct',
-  FALLBACK_COOLDOWN_MS: 40000, // 40 seconds - Groq uses sliding window rate limits
+  FALLBACK_COOLDOWN_MS: 30000, // 30 seconds - Groq uses sliding window rate limits
   DEFAULT_LANGUAGE: 'python',
 } as const;
 

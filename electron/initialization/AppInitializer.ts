@@ -125,7 +125,8 @@ export class AppInitializer {
         INITIAL_SOLUTION_ERROR: "solution-error",
         DEBUG_START: "debug-start",
         DEBUG_SUCCESS: "debug-success",
-        DEBUG_ERROR: "debug-error"
+        DEBUG_ERROR: "debug-error",
+        SHOW_ERROR_NOTIFICATION: "show-error-notification"
       }
     }
 
@@ -203,7 +204,8 @@ export class AppInitializer {
             INITIAL_SOLUTION_ERROR: "solution-error",
             DEBUG_START: "debug-start",
             DEBUG_SUCCESS: "debug-success",
-            DEBUG_ERROR: "debug-error"
+            DEBUG_ERROR: "debug-error",
+            SHOW_ERROR_NOTIFICATION: "show-error-notification"
         }, // We can import this from AppState
         takeScreenshot: async () => {
             if (!appState.mainWindow) throw new Error("No main window available")

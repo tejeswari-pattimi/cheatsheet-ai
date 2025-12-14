@@ -11,8 +11,6 @@ interface QueueCommandsProps {
   credits: number
   currentLanguage: string
   setLanguage: (language: string) => void
-  currentModel: string
-  currentProvider: string
 }
 
 const QueueCommands: React.FC<QueueCommandsProps> = ({
@@ -21,16 +19,45 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   credits,
   currentLanguage,
   setLanguage,
-  currentModel,
-  currentProvider
 }) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const [showAllShortcuts, setShowAllShortcuts] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { showToast } = useToast()
+  const [currentMode, setCurrentMode] = useState<'mcq' | 'coding'>('coding')
 
 
+
+  // Load current mode on mount
+  useEffect(() => {
+    const loadMode = async () => {
+      try {
+        const config = await window.electronAPI.getConfig()
+        setCurrentMode(config.mode || 'coding')
+      } catch (error) {
+        console.error("Failed to load mode:", error)
+      }
+    }
+    loadMode()
+  }, [])
+
+  // Toggle mode function
+  const toggleMode = async () => {
+    const newMode = currentMode === 'mcq' ? 'coding' : 'mcq'
+    setCurrentMode(newMode)
+    
+    try {
+      await window.electronAPI.updateConfig({ mode: newMode })
+      const modeInfo = newMode === 'mcq' 
+        ? { icon: '📝', description: 'MCQ Mode - Optimized for multiple choice questions' }
+        : { icon: '💻', description: 'Coding Mode - Optimized for programming and web dev' }
+      showToast(`${modeInfo.icon} Mode Changed`, modeInfo.description, 'success')
+    } catch (error) {
+      console.error("Failed to update mode:", error)
+      showToast('Error', 'Failed to change mode', 'error')
+    }
+  }
 
   // Extract the repeated language selection logic into a separate function
   const extractLanguagesAndUpdate = (direction?: 'next' | 'prev') => {
@@ -140,6 +167,19 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     <div>
       <div className="pt-2 w-fit">
         <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
+          {/* Mode Switcher Button */}
+          <div
+            className="flex items-center gap-2 px-2 py-1 cursor-pointer rounded hover:bg-white/10 transition-colors"
+            onClick={toggleMode}
+            title={`Switch to ${currentMode === 'mcq' ? 'Coding' : 'MCQ'} Mode`}
+          >
+            <span className="text-[14px]">{currentMode === 'mcq' ? '📝' : '💻'}</span>
+            <span className="text-[11px] font-semibold text-white/90">
+              {currentMode === 'mcq' ? 'MCQ' : 'Coding'}
+            </span>
+          </div>
+          <div className="h-4 w-px bg-white/20" />
+
           {/* Model Indicator */}
           <div className="flex items-center gap-2 px-2 py-1">
             <span className="text-[14px]">🤖</span>

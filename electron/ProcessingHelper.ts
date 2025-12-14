@@ -1,4 +1,3 @@
-import fs from "node:fs"
 import sharp from "sharp"
 import { ScreenshotHelper } from "./ScreenshotHelper"
 import { IProcessingHelperDeps } from "./main"
@@ -9,6 +8,7 @@ import { performanceMonitor } from "./utils/PerformanceMonitor"
 import { GroqProvider } from "./processing/ai-providers/GroqProvider"
 import { API } from "./constants/app-constants"
 import { MCQParser, WebDevParser, PythonParser, TextParser, ResponseParser } from "./processing/parsers/Parsers"
+import { getSystemPrompt } from "./processing/prompts/system-prompts"
 
 export class ProcessingHelper {
   private deps: IProcessingHelperDeps
@@ -135,6 +135,13 @@ export class ProcessingHelper {
         try {
           extractedText = await ocrHelper.extractTextFromMultiple(screenshots)
           console.log(`OCR extracted ${extractedText.length} characters`)
+          
+          // Dev mode: Log extracted text
+          if (process.env.NODE_ENV === 'development') {
+            console.log('\n========== EXTRACTED TEXT (OCR) ==========')
+            console.log(extractedText)
+            console.log('==========================================\n')
+          }
         } catch (error) {
           console.error('OCR failed:', error)
           throw new Error('OCR extraction failed')
@@ -159,246 +166,11 @@ export class ProcessingHelper {
       this.currentAbortController = new AbortController()
       const signal = this.currentAbortController.signal
 
-      const language = await configHelper.getLanguage()
+      const language = configHelper.getLanguage()
+      const mode = configHelper.getMode()
 
-      // Construct system prompt
-      // For now, combining all prompts. Ideally logic should select based on detected type or config.
-      // But the original code passed a huge prompt covering all cases.
-      // We'll reconstruct a similar prompt using the exported constant.
-      // Since SYSTEM_PROMPTS.MCQ was just a part, I should have copied the WHOLE thing or use parts.
-      // The original code had one massive string.
-      // Let's assume SYSTEM_PROMPTS.MCQ + WEB_DEV covers it or I should have copied more.
-      // I will assume for now I need to pass a comprehensive prompt.
-
-      // Re-constructing the massive prompt from memory/context isn't ideal if I didn't save it all in `system-prompts.ts`.
-      // I only saved snippets in the `create_file` block for `system-prompts.ts`.
-      // I should have copied the whole content of the prompt from the original file.
-      // Since I still have access to the original file via `read_file` (I read it before),
-      // I can copy the content now into `system-prompts.ts` properly or just inline it here for safety if I messed up.
-      // But refactoring means moving it out.
-
-      // Let's use the one from the original file I read earlier.
-      // I will use a simplified version here for brevity in this response,
-      // but in a real scenario I would ensure the full text is moved.
-      // I'll stick to the massive string here to ensure functionality doesn't break due to missing prompt parts,
-      // then in a future step I'd move it to a file properly.
-
-      // Wait, I am supposed to "Move prompts to external files".
-      // I will update `system-prompts.ts` with the FULL content in the next step or just inline it back if I can't.
-      // Actually, I can just use the previous logic but call the providers.
-
-      const systemPrompt = `You are an expert problem solver. Analyze carefully and provide complete, accurate answers.
-
-RESPONSE FORMATS:
-
-1. MULTIPLE CHOICE QUESTIONS (MCQ):
-CRITICAL: Calculate/solve the problem yourself and give the CORRECT answer.
-- Single answer MCQ: Choose ONE correct option (A/B/C/D)
-- Multiple answer MCQ: Choose ALL correct options (e.g., "1, 3, 4")
-- If you calculate a value, use YOUR calculated result (not necessarily the exact option text)
-- OCR errors may cause option values to be slightly wrong - trust your calculation
-- Example: If you calculate 6600 but option 3 shows "6500", answer "FINAL ANSWER: option 3) 6600"
-
-Format (GROQ MODE):
-FINAL ANSWER: option {number}) {your correct answer or statement}
-
-Examples: 
-- "FINAL ANSWER: option 2) True"
-- "FINAL ANSWER: option 3) 6600" (your calculation, even if option says 6500)
-- "FINAL ANSWER: option 1, 3, 4) Multiple correct answers"
-- "FINAL ANSWER: option 1) 5050"
-
-You may show brief reasoning if helpful (2-3 lines max), but ALWAYS end with "FINAL ANSWER: option X)" line with YOUR correct calculation.
-
-2. FILL IN THE BLANKS:
-Provide the missing word(s) or phrase(s) that complete the sentence correctly.
-
-Format:
-FINAL ANSWER: {word or phrase}
-
-Example:
-- "FINAL ANSWER: photosynthesis"
-- "FINAL ANSWER: World War II"
-
-3. SHORT ANSWER / Q&A:
-Provide a clear, concise answer to the question (1-3 sentences).
-
-Format:
-\`\`\`text
-Your answer here
-\`\`\`
-
-4. PYTHON QUESTION:
-CRITICAL: Write MINIMAL, CONCISE code - prefer one-liners when possible.
-- Use list comprehensions, lambda functions, and built-in functions
-- Avoid unnecessary variables or verbose code
-- If it can be done in one line, do it in one line
-- Only add comments if absolutely necessary
-
-Format:
-Main concept: [Brief explanation]
-
-\`\`\`python
-# Minimal code solution - one-liner preferred
-# Include examples from question if provided
-\`\`\`
-
-Examples of minimal Python:
-- Sum: sum(range(1, n+1))
-- Filter: [x for x in lst if x > 0]
-- Map: list(map(lambda x: x**2, nums))
-
-5. WEB DEVELOPMENT QUESTION:
-⚠️ CRITICAL - FOLLOW INSTRUCTIONS EXACTLY ⚠️
-
-STEP 1: READ EVERYTHING CAREFULLY
-- Read ALL text in screenshots: question, guidelines, helping text, test cases, requirements
-- If there's a design image, study it carefully - colors, spacing, layout, fonts, sizes
-- Note EVERY requirement: "use Bootstrap", "3 images", "specific class names", etc.
-
-STEP 2: ANALYZE REQUIREMENTS
-- Bootstrap required? Include ALL Bootstrap classes mentioned (container, row, col-*, text-center, etc.)
-- Specific elements? Count them: "3 images" = exactly 3 <img> tags
-- Design image? Match it PIXEL-PERFECT: exact colors, spacing, fonts, sizes
-- Test cases? Satisfy EVERY SINGLE ONE - they are requirements, not suggestions
-- Naming conventions? Use what's specified OR industry standards (kebab-case for CSS classes)
-
-STEP 3: INDUSTRY STANDARDS (if not specified otherwise)
-CSS Naming:
-- Use BEM methodology: .block__element--modifier
-- Or semantic names: .header, .nav, .hero, .card, .footer
-- Kebab-case: .main-content, .nav-item, .btn-primary
-- NO generic names like .div1, .box, .thing
-
-HTML Structure:
-- Semantic tags: <header>, <nav>, <main>, <section>, <article>, <footer>
-- Proper hierarchy: h1 > h2 > h3
-- Accessibility: alt attributes, aria labels, proper form labels
-
-CSS Best Practices:
-- Mobile-first approach
-- Flexbox or Grid for layouts
-- CSS variables for colors/spacing (if appropriate)
-- Consistent spacing units (rem, em, or px)
-
-STEP 4: RESPONSIVE DESIGN (BEGINNER-FRIENDLY)
-ALWAYS make websites responsive using SIMPLE concepts:
-- Use percentage widths: width: 100%, width: 50%
-- Use max-width for containers: max-width: 1200px
-- Use flexbox for layouts: display: flex, flex-wrap: wrap
-- Use media queries for breakpoints:
-  @media (max-width: 768px) { /* Mobile */ }
-  @media (min-width: 769px) { /* Desktop */ }
-- Make images responsive: img { max-width: 100%; height: auto; }
-- Use relative units: em, rem, % (avoid fixed px for everything)
-
-STEP 5: BOOTSTRAP IMPLEMENTATION (if required)
-- Include ALL Bootstrap utility classes mentioned in test cases
-- Layout: container, row, col-*, col-md-*, col-lg-*
-- Display: d-flex, d-none, d-block, d-md-flex, d-md-none
-- Alignment: justify-content-*, align-items-*, text-center
-- Spacing: m-*, p-*, mt-*, mb-*, mx-auto
-- Colors: bg-primary, bg-secondary, bg-success, bg-danger, bg-warning, bg-info, text-white, text-dark
-- Buttons: btn, btn-primary, btn-secondary, btn-lg, btn-sm
-- Write Bootstrap-like CSS inline in <style> tag (NO CDN links)
-
-STEP 6: COLORS (Simple & Beginner-Friendly)
-- If specific colors mentioned: Use those EXACT colors (#007bff, rgb(255,0,0), etc.)
-- If Bootstrap mentioned: Use Bootstrap color classes (bg-primary, bg-secondary, text-white, etc.)
-- If no colors specified: Use simple, professional colors:
-  * Primary: #007bff (blue)
-  * Secondary: #6c757d (gray)
-  * Success: #28a745 (green)
-  * Danger: #dc3545 (red)
-  * Warning: #ffc107 (yellow)
-  * Info: #17a2b8 (cyan)
-  * Light: #f8f9fa (light gray)
-  * Dark: #343a40 (dark gray)
-
-STEP 7: DESIGN MATCHING (if image provided)
-- Colors: Extract EXACT colors from image OR use Bootstrap colors if appropriate
-- Spacing: Match padding, margins, gaps exactly
-- Typography: Match font sizes, weights, line heights
-- Layout: Match exact positioning, alignment, structure
-- Images: Use placeholder images with correct dimensions
-- Responsive: ALWAYS make it work on mobile and desktop
-
-STEP 8: VALIDATION CHECKLIST
-✓ Website is RESPONSIVE? (works on mobile and desktop)
-✓ Uses SIMPLE beginner concepts? (flexbox, percentages, media queries)
-✓ All test case requirements included?
-✓ All specified elements present? (count them!)
-✓ Bootstrap classes all included? (if required)
-✓ Colors appropriate? (specified, Bootstrap, or simple defaults)
-✓ Design matches image? (if provided)
-✓ Industry standard naming? (if not specified)
-✓ All CSS inside <style> tag?
-✓ No external links or CDN?
-✓ Semantic HTML used?
-✓ Accessible markup?
-
-Format:
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solution</title>
-    <style>
-        /* RESPONSIVE CSS - Use beginner-friendly concepts */
-        /* Flexbox, percentages, media queries, max-width */
-        /* Bootstrap colors if appropriate: bg-primary, text-white, etc. */
-        /* Make images responsive: max-width: 100%; height: auto; */
-        
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        /* Your CSS here */
-    </style>
-</head>
-<body>
-    <!-- RESPONSIVE HTML - Works on mobile and desktop -->
-    <!-- Use semantic tags: header, nav, main, section, footer -->
-    <!-- ALL required elements (count them!) -->
-    <!-- ALL Bootstrap classes (if required) -->
-</body>
-</html>
-
-REMEMBER:
-- ALWAYS make websites RESPONSIVE (mobile + desktop)
-- Use SIMPLE beginner concepts (flexbox, %, media queries)
-- Instructions are LAW - follow them EXACTLY
-- Test cases are REQUIREMENTS - satisfy ALL of them
-- Design images are BLUEPRINTS - match them PIXEL-PERFECT
-- Bootstrap colors OK: bg-primary, bg-secondary, text-white, etc.
-- Industry standards are DEFAULT - use them unless told otherwise
-
-AUTO-DETECT the question type and respond accordingly. User's preferred language: ${language}
-
-🔴 CRITICAL REMINDERS - READ BEFORE RESPONDING 🔴
-
-WEB DEVELOPMENT:
-1. ⚡ RESPONSIVE ALWAYS - Use flexbox, %, media queries (beginner-friendly)
-2. 🎨 COLORS - Use specified colors, Bootstrap colors (bg-primary, text-white), or simple defaults
-3. 📱 MOBILE-FIRST - Works on phone, tablet, desktop
-4. 📋 FOLLOW INSTRUCTIONS EXACTLY - Every word matters
-5. ✅ TEST CASES = REQUIREMENTS - Include ALL mentioned elements/classes
-6. 🎯 DESIGN IMAGES = BLUEPRINTS - Match colors, spacing, fonts EXACTLY
-7. 🅱️ BOOTSTRAP - If mentioned, include ALL classes (container, row, col-*, bg-primary, etc.)
-8. 🔢 ELEMENT COUNT - "3 images" means EXACTLY 3 <img> tags, not 2, not 4
-9. 🏷️ NAMING - Use industry standards (semantic names, kebab-case) unless specified
-10. 📍 CSS LOCATION - ALL CSS inside <style> tag, NO external links
-11. 🏗️ SEMANTIC HTML - Use <header>, <nav>, <main>, <section>, <footer>
-12. ♿ ACCESSIBILITY - Include alt attributes, aria labels, proper structure
-13. ✔️ VALIDATION - Before responding, check: ✓ Responsive? ✓ All requirements? ✓ All classes?
-
-PYTHON:
-- Minimal code - one-liners preferred
-- Include examples from question if provided
-
-GENERAL:
-- Read helping instructions - they contain crucial hints
-- Guidelines are MANDATORY, not optional
-- If unsure, follow industry best practices`
+      // Get optimized system prompt based on mode
+      const systemPrompt = getSystemPrompt(mode, language)
 
       let responseText = ""
 
@@ -409,61 +181,31 @@ GENERAL:
         })
       }
 
-      // Call appropriate API based on mode with retry logic
-      const maxRetries = 3
-      let lastError: any = null
+      // Call appropriate API based on mode (fallback handled in GroqProvider)
+      performanceMonitor.startTimer('API Call');
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          performanceMonitor.startTimer(`API Call - Attempt ${attempt}`);
+      // Check if we're using fallback before the call
+      const wasUsingFallback = this.groqProvider.isUsingFallbackModel();
 
-          // Use appropriate method based on model type
-          if (isTextOnlyModel) {
-            performanceMonitor.startTimer('Groq Text API (with OCR)');
-            responseText = await this.groqProvider.generateContent(systemPrompt, imageDataList, signal, undefined, extractedText);
-            performanceMonitor.endTimer('Groq Text API (with OCR)');
-          } else {
-            performanceMonitor.startTimer('Groq Vision API (no OCR)');
-            responseText = await this.groqProvider.generateContent(systemPrompt, imageDataList, signal);
-            performanceMonitor.endTimer('Groq Vision API (no OCR)');
-          }
-
-          performanceMonitor.endTimer(`API Call - Attempt ${attempt}`);
-
-          // Success - break retry loop
-          break
-
-        } catch (apiError: any) {
-          lastError = apiError
-          console.error(`API call attempt ${attempt}/${maxRetries} failed:`, apiError.message)
-
-          // Check if it's a 503 or network error
-          const is503 = apiError.response?.status === 503 || apiError.code === 'ERR_BAD_RESPONSE'
-          const isNetworkError = apiError.code === 'ECONNRESET' || apiError.code === 'ETIMEDOUT' || apiError.message?.includes('timeout')
-
-          if ((is503 || isNetworkError) && attempt < maxRetries) {
-            // Wait before retry (exponential backoff)
-            const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
-            console.log(`Waiting ${waitTime}ms before retry...`)
-
-            if (mainWindow) {
-              mainWindow.webContents.send("processing-status", {
-                message: `API temporarily unavailable. Retrying (${attempt}/${maxRetries})...`,
-                progress: 60
-              })
-            }
-
-            await new Promise(resolve => setTimeout(resolve, waitTime))
-          } else {
-            // Non-retryable error or max retries reached
-            throw apiError
-          }
-        }
+      // Use appropriate method based on model type
+      if (isTextOnlyModel) {
+        performanceMonitor.startTimer('Groq Text API (with OCR)');
+        responseText = await this.groqProvider.generateContent(systemPrompt, imageDataList, signal, undefined, extractedText);
+        performanceMonitor.endTimer('Groq Text API (with OCR)');
+      } else {
+        performanceMonitor.startTimer('Groq Vision API (no OCR)');
+        responseText = await this.groqProvider.generateContent(systemPrompt, imageDataList, signal);
+        performanceMonitor.endTimer('Groq Vision API (no OCR)');
       }
 
-      // If we exhausted retries without success
-      if (!responseText && lastError) {
-        throw lastError
+      performanceMonitor.endTimer('API Call');
+
+      // Warn user if Scout model was used (less accurate)
+      if (!wasUsingFallback && this.groqProvider.isUsingFallbackModel() && mainWindow) {
+        mainWindow.webContents.send(this.deps.PROCESSING_EVENTS.SHOW_ERROR_NOTIFICATION, {
+          title: "Using Backup Model",
+          message: "Maverick is rate-limited. Using Scout model - answers may be less accurate."
+        });
       }
 
       // Store for debugging
@@ -537,6 +279,14 @@ GENERAL:
         performanceMonitor.startTimer('OCR Extraction (Debug)');
         try {
           extractedText = await ocrHelper.extractTextFromMultiple(screenshots)
+          console.log(`OCR extracted ${extractedText.length} characters (debug mode)`)
+          
+          // Dev mode: Log extracted text
+          if (process.env.NODE_ENV === 'development') {
+            console.log('\n========== EXTRACTED TEXT (DEBUG OCR) ==========')
+            console.log(extractedText)
+            console.log('================================================\n')
+          }
         } catch (error) {
           console.error('OCR failed in debug:', error)
         }
@@ -573,58 +323,32 @@ Now analyze these error screenshots and fix the issues. Respond in the same form
         })
       }
 
-      // Call API with retry logic
-      const maxRetries = 3
-      let lastError: any = null
+      // Call API (fallback handled in GroqProvider)
+      performanceMonitor.startTimer('Debug API Call');
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          performanceMonitor.startTimer(`Debug Call - Attempt ${attempt}`);
+      // Check if we're using fallback before the call
+      const wasUsingFallback = this.groqProvider.isUsingFallbackModel();
 
-          // Use Groq with history
-          const history = this.conversationHistory.map(h => ({
-              role: h.role,
-              content: h.content
-          }));
+      // Use Groq with history
+      const history = this.conversationHistory.map(h => ({
+          role: h.role,
+          content: h.content
+      }));
 
-          if (this.groqProvider.generateContentWithHistory) {
-              responseText = await this.groqProvider.generateContentWithHistory(debugPrompt, imageDataList, history, signal, extractedText);
-          } else {
-              throw new Error("Groq provider does not support history");
-          }
-
-          performanceMonitor.endTimer(`Debug Call - Attempt ${attempt}`);
-
-          // Success - break retry loop
-          break
-
-        } catch (apiError: any) {
-          lastError = apiError
-          console.error(`Debug API call attempt ${attempt}/${maxRetries} failed:`, apiError.message)
-
-          const is503 = apiError.response?.status === 503 || apiError.code === 'ERR_BAD_RESPONSE'
-          const isNetworkError = apiError.code === 'ECONNRESET' || apiError.code === 'ETIMEDOUT'
-
-          if ((is503 || isNetworkError) && attempt < maxRetries) {
-            const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
-            console.log(`Waiting ${waitTime}ms before retry...`)
-
-            if (mainWindow) {
-              mainWindow.webContents.send("processing-status", {
-                message: `API temporarily unavailable. Retrying (${attempt}/${maxRetries})...`,
-                progress: 60
-              })
-            }
-
-            await new Promise(resolve => setTimeout(resolve, waitTime))
-          } else {
-            throw apiError
-          }
-        }
+      if (this.groqProvider.generateContentWithHistory) {
+          responseText = await this.groqProvider.generateContentWithHistory(debugPrompt, imageDataList, history, signal, extractedText);
+      } else {
+          throw new Error("Groq provider does not support history");
       }
 
-      if (!responseText && lastError) {
-        throw lastError
+      performanceMonitor.endTimer('Debug API Call');
+
+      // Warn user if Scout model was used (less accurate)
+      if (!wasUsingFallback && this.groqProvider.isUsingFallbackModel() && mainWindow) {
+        mainWindow.webContents.send(this.deps.PROCESSING_EVENTS.SHOW_ERROR_NOTIFICATION, {
+          title: "Using Backup Model",
+          message: "Maverick is rate-limited. Using Scout model - answers may be less accurate."
+        });
       }
 
       // Update conversation

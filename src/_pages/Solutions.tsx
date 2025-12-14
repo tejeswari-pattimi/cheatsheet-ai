@@ -159,6 +159,7 @@ const Solutions: React.FC<SolutionsProps> = ({
   const [cssData, setCssData] = useState<string | null>(null)
   const [questionType, setQuestionType] = useState<string | null>(null)
   const [finalAnswer, setFinalAnswer] = useState<string | null>(null)
+  const [currentMode, setCurrentMode] = useState<'mcq' | 'coding'>('coding')
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const [tooltipHeight, setTooltipHeight] = useState(0)
@@ -179,6 +180,19 @@ const Solutions: React.FC<SolutionsProps> = ({
     frontendPerformance.start('Solutions Render');
     return () => frontendPerformance.end('Solutions Render');
   });
+
+  // Load current mode on mount
+  useEffect(() => {
+    const loadMode = async () => {
+      try {
+        const config = await window.electronAPI.getConfig()
+        setCurrentMode(config.mode || 'coding')
+      } catch (error) {
+        console.error("Failed to load mode:", error)
+      }
+    }
+    loadMode()
+  }, []);
 
   useEffect(() => {
     const fetchScreenshots = async () => {
@@ -680,8 +694,21 @@ const Solutions: React.FC<SolutionsProps> = ({
 
                 {solutionData && (
                   <>
+                    {/* MCQ Mode: Show Final Answer First */}
+                    {currentMode === 'mcq' && questionType === "multiple_choice" && finalAnswer && (
+                      <div className="mb-4 p-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-500/50 rounded-lg">
+                        <h2 className="text-[13px] font-medium text-white tracking-wide mb-2">
+                          ✓ FINAL ANSWER
+                        </h2>
+                        <p className="text-lg font-bold text-green-400">
+                          {finalAnswer}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* MCQ Mode: Clean Reasoning (not "My Thoughts") */}
                     <ContentSection
-                      title={`My Thoughts (${COMMAND_KEY} + Arrow keys to scroll)`}
+                      title={currentMode === 'mcq' ? 'Reasoning' : `My Thoughts (${COMMAND_KEY} + Arrow keys to scroll)`}
                       content={
                         thoughtsData && (
                           <div className="space-y-3">
@@ -702,8 +729,8 @@ const Solutions: React.FC<SolutionsProps> = ({
                       isLoading={!thoughtsData}
                     />
 
-                    {/* MCQ Final Answer Highlight */}
-                    {questionType === "multiple_choice" && finalAnswer && (
+                    {/* Coding Mode: Show Final Answer After Thoughts */}
+                    {currentMode === 'coding' && questionType === "multiple_choice" && finalAnswer && (
                       <div className="mb-4 p-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-500/50 rounded-lg">
                         <h2 className="text-[13px] font-medium text-white tracking-wide mb-2">
                           ✓ FINAL ANSWER
@@ -714,12 +741,15 @@ const Solutions: React.FC<SolutionsProps> = ({
                       </div>
                     )}
 
-                    <SolutionSection
-                      title="Solution"
-                      content={solutionData}
-                      isLoading={!solutionData}
-                      currentLanguage={currentLanguage}
-                    />
+                    {/* Hide code cell in MCQ mode for MCQ questions */}
+                    {!(currentMode === 'mcq' && questionType === "multiple_choice") && (
+                      <SolutionSection
+                        title="Solution"
+                        content={solutionData}
+                        isLoading={!solutionData}
+                        currentLanguage={currentLanguage}
+                      />
+                    )}
                   </>
                 )}
               </div>

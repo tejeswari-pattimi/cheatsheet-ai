@@ -150,8 +150,6 @@ const Queue: React.FC<QueueProps> = ({
             credits={credits}
             currentLanguage={currentLanguage}
             setLanguage={setLanguage}
-            currentModel={currentModel}
-            currentProvider={currentProvider}
           />
         </div>
       </div>

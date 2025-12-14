@@ -11,6 +11,7 @@ interface Config {
   groqModel: string;
   language: string;
   opacity: number;
+  mode: 'mcq' | 'coding'; // MCQ mode or Coding mode
 }
 
 export class ConfigHelper extends EventEmitter {
@@ -19,7 +20,8 @@ export class ConfigHelper extends EventEmitter {
     groqApiKey: "",
     groqModel: API.DEFAULT_GROQ_MODEL,
     language: API.DEFAULT_LANGUAGE,
-    opacity: WINDOW.MAX_OPACITY
+    opacity: WINDOW.MAX_OPACITY,
+    mode: 'coding' // Default to coding mode
   };
 
   constructor() {
@@ -251,8 +253,20 @@ export class ConfigHelper extends EventEmitter {
     this.updateConfig({ language });
   }
   
+  /**
+   * Get the current mode (MCQ or Coding)
+   */
+  public getMode(): 'mcq' | 'coding' {
+    const config = this.loadConfig();
+    return config.mode || 'coding';
+  }
 
-  
+  /**
+   * Set the mode (MCQ or Coding)
+   */
+  public setMode(mode: 'mcq' | 'coding'): void {
+    this.updateConfig({ mode });
+  }
 
 }
 

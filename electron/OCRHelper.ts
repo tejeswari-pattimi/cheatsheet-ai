@@ -24,30 +24,26 @@ export class OCRHelper {
           errorHandler: () => {} // Disable error logging
         });
         
-        // ULTRA-FAST CONFIGURATION - Maximum speed
+        // BALANCED CONFIGURATION - Better accuracy for code/text
         await worker.setParameters({
-          tessedit_pageseg_mode: 6 as any, // Uniform block of text
-          tessedit_ocr_engine_mode: 2 as any, // Legacy + LSTM (faster)
+          tessedit_pageseg_mode: 3 as any, // Fully automatic page segmentation (better for mixed content)
+          tessedit_ocr_engine_mode: 1 as any, // LSTM only (better accuracy)
           
-          // Speed optimizations
+          // Preserve whitespace and formatting (important for code)
+          preserve_interword_spaces: 1 as any,
+          
+          // Better handling of numbers and special characters
           classify_bln_numeric_mode: 1 as any,
           
-          // Disable all dictionaries for maximum speed
-          load_system_dawg: 0 as any,
-          load_freq_dawg: 0 as any,
+          // Keep some dictionaries for better word recognition
+          load_system_dawg: 1 as any,
+          load_freq_dawg: 1 as any,
+          
+          // Disable less useful dictionaries
           load_unambig_dawg: 0 as any,
           load_punc_dawg: 0 as any,
           load_number_dawg: 0 as any,
           load_bigram_dawg: 0 as any,
-          
-          // Disable language model
-          language_model_penalty_non_dict_word: 0 as any,
-          language_model_penalty_non_freq_dict_word: 0 as any,
-          
-          // Additional speed optimizations
-          tessedit_enable_doc_dict: 0 as any,
-          classify_enable_learning: 0 as any,
-          classify_enable_adaptive_matcher: 0 as any,
         });
         
         return worker;
@@ -55,7 +51,7 @@ export class OCRHelper {
       
       this.workers = await Promise.all(workerPromises);
       this.isInitialized = true;
-      console.log(`✓ ${this.workers.length} OCR workers initialized with ULTRA-FAST settings`);
+      console.log(`✓ ${this.workers.length} OCR workers initialized with balanced accuracy settings`);
     } catch (error) {
       console.error('Failed to initialize OCR workers:', error);
       this.isInitialized = false;
@@ -70,22 +66,26 @@ export class OCRHelper {
   }
 
   /**
-   * Preprocess image for ULTRA-FAST OCR
+   * Preprocess image for better OCR accuracy
    */
   private async preprocessImage(imagePath: string): Promise<Buffer> {
     try {
-      // Minimal preprocessing for maximum speed
+      // Better preprocessing for accuracy with code/text
       const processed = await sharp(imagePath)
-        .resize(1280, 720, { // 720p - faster processing
+        .resize(1920, 1080, { // Higher resolution for better accuracy
           fit: 'inside',
           withoutEnlargement: true,
-          kernel: 'nearest' // Fastest kernel
+          kernel: 'lanczos3' // Better quality kernel
         })
-        .grayscale() // Faster processing
+        .grayscale() // Convert to grayscale
         .normalize() // Improve contrast
-        .threshold(128) // Binary threshold for cleaner text
+        .sharpen() // Sharpen text edges
+        .modulate({
+          brightness: 1.1 // Slightly brighter
+        })
+        .linear(1.2, 0) // Increase contrast (multiplier, offset)
         .png({
-          compressionLevel: 0, // No compression
+          compressionLevel: 0,
           quality: 100
         })
         .toBuffer();
@@ -98,7 +98,7 @@ export class OCRHelper {
   }
 
   /**
-   * Extract text from screenshot file - ULTRA FAST
+   * Extract text from screenshot file with improved accuracy
    */
   public async extractText(imagePath: string): Promise<string> {
     if (!this.isInitialized || this.workers.length === 0) {

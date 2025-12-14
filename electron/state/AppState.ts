@@ -18,7 +18,8 @@ export const PROCESSING_EVENTS = {
   INITIAL_SOLUTION_ERROR: "solution-error",
   DEBUG_START: "debug-start",
   DEBUG_SUCCESS: "debug-success",
-  DEBUG_ERROR: "debug-error"
+  DEBUG_ERROR: "debug-error",
+  SHOW_ERROR_NOTIFICATION: "show-error-notification"
 } as const
 
 // Application State Interface

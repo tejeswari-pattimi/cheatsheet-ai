@@ -43,7 +43,13 @@ export class MCQParser implements ResponseParser {
       }
     }
 
-    const reasoningMatch = response.match(/```markdown\s*([\s\S]*?)```/)
+    // Extract reasoning from ```reasoning block (new MCQ mode format)
+    let reasoningMatch = response.match(/```reasoning\s*([\s\S]*?)```/)
+    
+    // Fallback to old markdown format
+    if (!reasoningMatch) {
+      reasoningMatch = response.match(/```markdown\s*([\s\S]*?)```/)
+    }
 
     let actualResponse = response
 

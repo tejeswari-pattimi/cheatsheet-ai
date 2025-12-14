@@ -463,6 +463,23 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </div>
                       )}
 
+                      {/* Mode Info */}
+                      <div className="px-2">
+                        <div className="flex items-center justify-between px-2 py-1">
+                          <span className="text-[11px] text-white/70">Current Mode</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-white/90">
+                              {currentMode === 'mcq' ? '📝 MCQ' : '💻 Coding'}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-[9px] text-white/50 px-2 mt-1">
+                          {currentMode === 'mcq' 
+                            ? 'Optimized for multiple choice questions with clean, concise answers'
+                            : 'Optimized for programming, web dev, and detailed explanations'}
+                        </p>
+                      </div>
+
                       {/* Language */}
                       <div className="px-2">
                         <div 

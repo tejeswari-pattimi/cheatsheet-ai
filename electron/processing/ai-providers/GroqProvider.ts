@@ -81,24 +81,8 @@ export class GroqProvider implements AIProvider {
 
     console.log(`[Groq] Starting API call with model: ${model}`);
 
-    const systemMessage = `${systemPrompt || ""}
-
-CRITICAL FOR ACCURACY AND FORMAT:
-- Calculate the correct answer yourself - don't just pick from options
-- ALWAYS use format: "FINAL ANSWER: option {number}) {your answer}"
-- For multiple answer MCQs, use: "option 1, 3, 4) Multiple answers"
-- For fill in the blanks, provide the exact word/phrase needed
-- For Q&A questions, give clear, concise answers (1-3 sentences)
-- If you calculate 6600 but option says 6500, answer with YOUR calculation (6600)
-- OCR may misread values - trust your math over the extracted text
-- Prioritize CORRECTNESS over matching given options exactly
-- Give the right answer even if it doesn't match any option perfectly
-
-MANDATORY FORMAT EXAMPLES:
-- "FINAL ANSWER: option 1) True"
-- "FINAL ANSWER: option 3) 6600"
-- "FINAL ANSWER: option 2) The correct statement"
-- "FINAL ANSWER: option 1, 3) Multiple correct"`;
+    // Use the provided system prompt directly (already optimized in ProcessingHelper)
+    const systemMessage = systemPrompt || "You are an expert problem solver.";
 
     // Check if this is a text-only model (GPT-OSS)
     const isTextOnlyModel = model.includes('gpt-oss');

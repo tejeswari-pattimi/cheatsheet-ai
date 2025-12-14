@@ -128,7 +128,7 @@ export function SettingsDialog({ open: externalOpen, onOpenChange }: SettingsDia
         <DialogHeader>
           <DialogTitle>API Settings</DialogTitle>
           <DialogDescription className="text-white/70">
-            Configure your Groq API key and processing mode.
+            Configure your Groq API key. Switch modes using the button in the main toolbar.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">

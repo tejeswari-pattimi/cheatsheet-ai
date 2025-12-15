@@ -11,7 +11,10 @@ interface AppStatus {
 export class StatusHelper {
   private static instance: StatusHelper;
   private status: AppStatus | null = null;
-  private readonly STATUS_URL = 'https://raw.githubusercontent.com/pragnyanramtha/cheatsheet-ai/refs/heads/main/status.json';
+  // Primary URL - JSONBin for instant updates (no caching)
+  // Fallback to GitHub if primary fails
+  private readonly PRIMARY_STATUS_URL = process.env.STATUS_URL || 'https://api.jsonbin.io/v3/b/69403696d0ea881f402b41e6/latest';
+  private readonly FALLBACK_STATUS_URL = 'https://raw.githubusercontent.com/pragnyanramtha/cheatsheet-ai/refs/heads/main/status.json';
   private readonly TIMEOUT_MS = 5000; // 5 second timeout
 
   private constructor() {}
@@ -24,20 +27,14 @@ export class StatusHelper {
   }
 
   /**
-   * Fetch status from remote server
+   * Fetch status from a URL
    */
-  public async fetchStatus(): Promise<AppStatus> {
-    // Add timestamp to bust cache
-    const cacheBuster = `?t=${Date.now()}`;
-    const urlWithCacheBuster = this.STATUS_URL + cacheBuster;
-    
-    console.log('[Status] Fetching status from:', urlWithCacheBuster);
-    
-    return new Promise((resolve) => {
-      const url = new URL(urlWithCacheBuster);
-      const protocol = url.protocol === 'https:' ? https : http;
+  private async fetchFromUrl(url: string): Promise<AppStatus> {
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(url);
+      const protocol = urlObj.protocol === 'https:' ? https : http;
 
-      const request = protocol.get(url, {
+      const request = protocol.get(urlObj, {
         timeout: this.TIMEOUT_MS,
         headers: {
           'User-Agent': 'CheatSheet-AI',
@@ -48,11 +45,6 @@ export class StatusHelper {
       }, (response) => {
         console.log('[Status] Response status code:', response.statusCode);
         
-        // Handle redirects
-        if (response.statusCode === 301 || response.statusCode === 302) {
-          console.log('[Status] Redirect to:', response.headers.location);
-        }
-        
         let data = '';
 
         response.on('data', (chunk) => {
@@ -62,7 +54,10 @@ export class StatusHelper {
         response.on('end', () => {
           try {
             console.log('[Status] Raw response:', data);
-            const status = JSON.parse(data) as AppStatus;
+            
+            // Handle JSONBin response format (has 'record' wrapper)
+            let parsed = JSON.parse(data);
+            const status = parsed.record || parsed; // JSONBin wraps in 'record', GitHub doesn't
             
             // Validate status structure
             if (typeof status.enabled !== 'boolean' ||
@@ -72,51 +67,63 @@ export class StatusHelper {
               throw new Error('Invalid status format');
             }
 
-            this.status = status;
             console.log('[Status] Successfully fetched status:', status);
-            resolve(status);
+            resolve(status as AppStatus);
           } catch (error) {
             console.error('[Status] Failed to parse status:', error);
-            // Default to enabled if fetch fails
-            const defaultStatus: AppStatus = {
-              enabled: true,
-              mode: 'all',
-              message: ''
-            };
-            this.status = defaultStatus;
-            console.log('[Status] Using default status (enabled)');
-            resolve(defaultStatus);
+            reject(error);
           }
         });
       });
 
       request.on('error', (error) => {
-        console.error('[Status] Failed to fetch status:', error);
-        // Default to enabled if fetch fails
-        const defaultStatus: AppStatus = {
-          enabled: true,
-          mode: 'all',
-          message: ''
-        };
-        this.status = defaultStatus;
-        console.log('[Status] Using default status due to error (enabled)');
-        resolve(defaultStatus);
+        console.error('[Status] Request failed:', error);
+        reject(error);
       });
 
       request.on('timeout', () => {
         request.destroy();
         console.error('[Status] Request timed out');
-        // Default to enabled if fetch fails
+        reject(new Error('Timeout'));
+      });
+    });
+  }
+
+  /**
+   * Fetch status from remote server with fallback
+   */
+  public async fetchStatus(): Promise<AppStatus> {
+    // Add timestamp to bust cache
+    const cacheBuster = `?t=${Date.now()}`;
+    
+    // Try primary URL first
+    try {
+      console.log('[Status] Fetching from primary URL:', this.PRIMARY_STATUS_URL);
+      const status = await this.fetchFromUrl(this.PRIMARY_STATUS_URL + cacheBuster);
+      this.status = status;
+      return status;
+    } catch (primaryError) {
+      console.warn('[Status] Primary URL failed, trying fallback:', primaryError);
+      
+      // Try fallback URL
+      try {
+        console.log('[Status] Fetching from fallback URL:', this.FALLBACK_STATUS_URL);
+        const status = await this.fetchFromUrl(this.FALLBACK_STATUS_URL + cacheBuster);
+        this.status = status;
+        return status;
+      } catch (fallbackError) {
+        console.error('[Status] Both URLs failed, using default (enabled)');
+        
+        // Default to enabled if all fetches fail
         const defaultStatus: AppStatus = {
           enabled: true,
           mode: 'all',
           message: ''
         };
         this.status = defaultStatus;
-        console.log('[Status] Using default status due to timeout (enabled)');
-        resolve(defaultStatus);
-      });
-    });
+        return defaultStatus;
+      }
+    }
   }
 
   /**

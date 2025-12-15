@@ -1,1 +1,1 @@
-{ "enabled": false,"mode":"all", "message": "The server is functional ?" }
+{ "enabled": true,"mode":"maverick", "message": "The server is functional ?" }

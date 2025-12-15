@@ -21,7 +21,7 @@ export class ConfigHelper extends EventEmitter {
     groqModel: API.DEFAULT_GROQ_MODEL,
     language: API.DEFAULT_LANGUAGE,
     opacity: WINDOW.MAX_OPACITY,
-    mode: 'coding' // Default to coding mode
+    mode: 'mcq' // Default to MCQ mode
   };
 
   constructor() {

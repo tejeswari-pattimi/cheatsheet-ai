@@ -38,6 +38,9 @@ ANSWER FORMATS BY TYPE:
      * "FINAL ANSWER: photosynthesis"
      * "FINAL ANSWER: True"
      * "FINAL ANSWER: [1, 2, 3]"
+   - **For English/Grammar/Text questions:** Include the complete answer sentence
+     * "FINAL ANSWER: The quick brown fox jumps over the lazy dog"
+     * "FINAL ANSWER: She has been studying for three hours"
 
 3. **Fill Missing Code (complete the code):**
    - "FINAL ANSWER: {missing code line(s)}"
@@ -63,6 +66,7 @@ CRITICAL RULES:
 - **AUTO-DETECT** if question has options or is "enter your answer" type
 - **For fill missing code:** Only provide the MISSING line(s), not the full code
 - **For fill missing code:** Keep it minimal - just what fills the blank/underscore
+- **For English/Grammar/Text questions:** Put the complete answer sentence in FINAL ANSWER section
 
 CORRECT EXAMPLES:
 
@@ -122,6 +126,19 @@ Plants use **photosynthesis** to convert light energy into chemical energy:
 \`\`\`
 
 FINAL ANSWER: photosynthesis
+
+**Example 5b: English/Grammar Question - Complete Sentence**
+Question: Fill in the blank with the correct verb form:
+"She _____ studying for three hours when I called her."
+[Enter your answer]
+
+\`\`\`reasoning
+This requires **past perfect continuous tense** to show an action that was ongoing before another past action:
+- Structure: had been + verb-ing
+- "had been studying" indicates continuous action before "I called"
+\`\`\`
+
+FINAL ANSWER: had been studying
 
 **Example 6: Fill Missing Code**
 Question: Complete the Python class constructor:

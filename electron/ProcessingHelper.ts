@@ -154,10 +154,10 @@ export class ProcessingHelper {
       performanceMonitor.startTimer('Load Screenshots');
       const imageDataList = (isTextOnlyModel || isUsingFallback) ? [] : await Promise.all(
         screenshots.map(async (screenshotPath) => {
-          // Compress image to reduce payload size and speed up API calls
+          // Aggressive compression for maximum speed
           const compressedBuffer = await sharp(screenshotPath)
-            .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 85 })
+            .resize(1280, 720, { fit: 'inside', withoutEnlargement: true }) // Smaller size for faster upload
+            .jpeg({ quality: 75, mozjpeg: true }) // Lower quality, faster compression
             .toBuffer()
           return compressedBuffer.toString('base64')
         })
@@ -346,10 +346,10 @@ export class ProcessingHelper {
       // Load and compress error screenshots (only for vision models)
       const imageDataList = (isTextOnlyModel || isUsingFallback) ? [] : await Promise.all(
         screenshots.map(async (screenshotPath) => {
-          // Compress image to reduce payload size and speed up API calls
+          // Aggressive compression for maximum speed
           const compressedBuffer = await sharp(screenshotPath)
-            .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 85 })
+            .resize(1280, 720, { fit: 'inside', withoutEnlargement: true }) // Smaller size for faster upload
+            .jpeg({ quality: 75, mozjpeg: true }) // Lower quality, faster compression
             .toBuffer()
           return compressedBuffer.toString('base64')
         })

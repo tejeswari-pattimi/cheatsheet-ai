@@ -226,18 +226,21 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
   const handleSignOut = async () => {
     try {
+      // Clear all storage
       localStorage.clear();
       sessionStorage.clear();
       
+      // Clear API key in config
       await window.electronAPI.updateConfig({
         apiKey: '',
+        groqApiKey: ''
       });
       
       showToast('Success', 'Logged out successfully', 'success');
       
-      // Minimal delay to show toast before reload
+      // Force hard reload to reset all state
       setTimeout(() => {
-        window.location.reload();
+        window.location.href = window.location.href;
       }, 500);
     } catch (err) {
       console.error("Error logging out:", err);

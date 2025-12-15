@@ -96,7 +96,7 @@ export class ClipboardTyper {
       })
 
       // Delay to allow user to focus target window and position cursor
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise(resolve => setTimeout(resolve, 300))
 
       keyboard.config.autoDelayMs = this.typingSpeed
 

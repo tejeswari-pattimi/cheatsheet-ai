@@ -17,51 +17,51 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onOpenSettings }) 
       icon: "🚀"
     },
     {
-      title: "Step 1: Add Your API Key 🔑",
-      content: "Click 'Open Settings' below to add your Groq API key. This is required to use the AI features. You can get API keys from Groq Console.",
-      icon: "⚙️",
-      action: "Open Settings"
-    },
-    {
-      title: "Step 2: Quick Answer Mode ⚡",
+      title: "Step 1: Quick Answer Mode ⚡",
       content: "Press Ctrl+D to instantly capture a screenshot and get an answer. This is the fastest way to solve problems! It automatically resets, captures, and processes in one action.",
       icon: "⌨️",
       highlight: "Ctrl+D"
     },
     {
-      title: "Step 3: Manual Screenshot Mode 📸",
+      title: "Step 2: Manual Screenshot Mode 📸",
       content: "For more control, use Ctrl+H to take screenshots one by one. You can capture multiple screenshots (like question + code), then press Ctrl+Enter to process them all together.",
       icon: "📷",
       highlight: "Ctrl+H"
     },
     {
-      title: "Step 4: Navigate & Control 🪟",
+      title: "Step 3: Navigate & Control 🪟",
       content: "Use Ctrl+Arrow Keys to move the window around your screen. Press Ctrl+B or Alt+1 to hide/show the window. This helps you position CheatSheet AI exactly where you need it.",
       icon: "🎮",
       highlight: "Ctrl+Arrows"
     },
     {
-      title: "Step 5: Copy Code Instantly 📋",
+      title: "Step 4: Copy Code Instantly 📋",
       content: "For web development questions, press Ctrl+Shift+C to copy HTML code and Ctrl+Shift+D to copy CSS. Then use Ctrl+Shift+V to type the clipboard content (bypasses paste restrictions).",
       icon: "💻",
       highlight: "Ctrl+Shift+C/D/V"
     },
     {
-      title: "Step 6: Scroll Long Solutions 📜",
+      title: "Step 5: Scroll Long Solutions 📜",
       content: "When viewing long code solutions, use Ctrl+Up/Down to scroll through the content. This is especially useful for reading multi-line code explanations and implementations.",
       icon: "🔍",
       highlight: "Ctrl+↑↓"
     },
     {
-      title: "Step 7: AI Model 🤖",
+      title: "Step 6: AI Model 🤖",
       content: "Uses Groq Llama 4 Maverick vision model for fast and accurate analysis of all question types.",
       icon: "🤖",
       highlight: "Maverick"
     },
     {
-      title: "Step 8: You're Ready! ✨",
+      title: "Step 7: You're Ready! ✨",
       content: "Navigate to any question, press Ctrl+D, and watch the magic happen. Check the 'All Shortcuts' tab for a complete reference. Press Ctrl+R to reset anytime. Happy coding!",
       icon: "🎯"
+    },
+    {
+      title: "Step 8: Add Your API Key 🔑",
+      content: "Click 'Open Settings' below to add your Groq API key. This is required to use the AI features. You can get API keys from Groq Console.",
+      icon: "⚙️",
+      action: "Open Settings"
     }
   ];
 

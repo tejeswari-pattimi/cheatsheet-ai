@@ -219,9 +219,19 @@ function App() {
     setIsSettingsOpen(true);
   }, []);
   
-  const handleCloseSettings = useCallback((open: boolean) => {
+  const handleCloseSettings = useCallback(async (open: boolean) => {
     console.log('Settings dialog state changed:', open);
     setIsSettingsOpen(open);
+    
+    // Re-check API key when settings dialog closes
+    if (!open) {
+      try {
+        const hasKey = await window.electronAPI.checkApiKey();
+        setHasApiKey(hasKey);
+      } catch (error) {
+        console.error("Failed to re-check API key:", error);
+      }
+    }
   }, []);
 
   return (

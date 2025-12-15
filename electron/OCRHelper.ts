@@ -6,7 +6,7 @@ import sharp from 'sharp';
 export class OCRHelper {
   private workers: Worker[] = [];
   private isInitialized: boolean = false;
-  private workerCount: number = 2; // Use 2 workers for parallel processing
+  private workerCount: number = 4; // Use 4 workers for maximum parallel processing
   private currentWorkerIndex: number = 0;
 
   constructor() {
@@ -24,31 +24,25 @@ export class OCRHelper {
           errorHandler: () => {} // Disable error logging
         });
         
-        // OPTIMIZED CONFIGURATION - Maximum accuracy for code/text
+        // SPEED-OPTIMIZED CONFIGURATION - Maximum speed with acceptable accuracy
         await worker.setParameters({
-          tessedit_pageseg_mode: 1 as any, // Automatic page segmentation with OSD (Orientation and Script Detection)
-          tessedit_ocr_engine_mode: 1 as any, // LSTM only (best accuracy)
+          tessedit_pageseg_mode: 6 as any, // Assume uniform block of text (fastest)
+          tessedit_ocr_engine_mode: 1 as any, // LSTM only
           
-          // Preserve whitespace and formatting (critical for code)
+          // Preserve whitespace (critical for code)
           preserve_interword_spaces: 1 as any,
           
-          // Better handling of numbers and special characters
-          classify_bln_numeric_mode: 1 as any,
+          // Disable all dictionaries for maximum speed
+          load_system_dawg: 0 as any,
+          load_freq_dawg: 0 as any,
+          load_unambig_dawg: 0 as any,
+          load_punc_dawg: 0 as any,
+          load_number_dawg: 0 as any,
+          load_bigram_dawg: 0 as any,
           
-          // Enable all dictionaries for maximum accuracy
-          load_system_dawg: 1 as any,
-          load_freq_dawg: 1 as any,
-          load_unambig_dawg: 1 as any,
-          load_punc_dawg: 1 as any,
-          load_number_dawg: 1 as any,
-          load_bigram_dawg: 1 as any,
-          
-          // Character whitelist for code (letters, numbers, common symbols)
-          // Removed to allow all characters for better flexibility
-          
-          // Improve character recognition
-          classify_enable_learning: 1 as any,
-          classify_enable_adaptive_matcher: 1 as any,
+          // Disable adaptive features for speed
+          classify_enable_learning: 0 as any,
+          classify_enable_adaptive_matcher: 0 as any,
         });
         
         return worker;
@@ -82,40 +76,25 @@ export class OCRHelper {
       const originalWidth = metadata.width || 1920;
       const originalHeight = metadata.height || 1080;
       
-      // Calculate optimal size for OCR (aim for ~300 DPI equivalent)
-      // For typical screen text, 2x-3x upscaling works well
-      const scaleFactor = originalWidth < 1920 ? 2.5 : 1.5;
+      // Minimal upscaling for maximum speed
+      const scaleFactor = originalWidth < 1920 ? 1.5 : 1.0;
       const targetWidth = Math.round(originalWidth * scaleFactor);
       const targetHeight = Math.round(originalHeight * scaleFactor);
       
       const processed = await sharp(imagePath)
-        // Upscale for better text recognition
+        // Minimal upscaling
         .resize(targetWidth, targetHeight, {
           fit: 'fill',
-          kernel: 'lanczos3' // Highest quality resampling
+          kernel: 'nearest' // Fastest resampling
         })
-        // Convert to grayscale (better for text recognition)
+        // Convert to grayscale
         .grayscale()
-        // Normalize to improve contrast (adaptive)
+        // Normalize contrast (essential for OCR)
         .normalize()
-        // Moderate sharpening (not too aggressive)
-        .sharpen({
-          sigma: 1.0,
-          m1: 0.5,
-          m2: 1.5
-        })
-        // Slight brightness boost
-        .modulate({
-          brightness: 1.1
-        })
-        // Moderate contrast boost (less aggressive than before)
-        .linear(1.3, -(128 * 0.3))
-        // Gentle gamma correction
-        .gamma(1.1)
-        // Output as high-quality PNG (no threshold - let Tesseract handle it)
+        // Output as PNG with minimal compression
         .png({
-          compressionLevel: 0,
-          quality: 100
+          compressionLevel: 0, // No compression for speed
+          quality: 90
         })
         .toBuffer();
       
@@ -155,9 +134,9 @@ export class OCRHelper {
       // Preprocess image for maximum accuracy
       const imageBuffer = await this.preprocessImage(imagePath);
       
-      // Perform OCR with accuracy-focused settings
+      // Perform OCR with speed-focused settings
       const { data: { text } } = await worker.recognize(imageBuffer, {
-        rotateAuto: true, // Enable auto-rotation for better accuracy
+        rotateAuto: false, // Disable auto-rotation for speed
         rotateRadians: 0
       });
       

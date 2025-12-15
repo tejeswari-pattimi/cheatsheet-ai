@@ -172,6 +172,22 @@ export class AppInitializer {
       this.setupPaths()
       this.loadEnvVariables()
 
+      // Check application status from remote server
+      const { statusHelper } = await import("../StatusHelper")
+      await statusHelper.fetchStatus()
+      
+      if (!statusHelper.isEnabled()) {
+        const message = statusHelper.getMessage() || "Application is currently disabled. Please try again later."
+        console.error("[Status] Application disabled:", message)
+        // Show error dialog and quit
+        const { dialog } = await import("electron")
+        dialog.showErrorBox("Application Disabled", message)
+        app.quit()
+        return
+      }
+      
+      console.log("[Status] Application enabled, mode:", statusHelper.getMode())
+
       // Ensure a configuration file exists
       if (!configHelper.hasApiKey()) {
         console.log("No API key found in configuration. User will need to set up.")

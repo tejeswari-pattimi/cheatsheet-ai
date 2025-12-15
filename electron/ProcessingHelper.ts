@@ -9,6 +9,7 @@ import { GroqProvider } from "./processing/ai-providers/GroqProvider"
 import { API } from "./constants/app-constants"
 import { MCQParser, WebDevParser, PythonParser, TextParser } from "./processing/parsers/Parsers"
 import { getSystemPrompt } from "./processing/prompts/system-prompts"
+import { statusHelper } from "./StatusHelper"
 
 export class ProcessingHelper {
   private deps: IProcessingHelperDeps
@@ -113,7 +114,20 @@ export class ProcessingHelper {
       this.lastResponse = ""
 
       const config = configHelper.loadConfig()
-      const model = config.groqModel || API.DEFAULT_GROQ_MODEL
+      let model = config.groqModel || API.DEFAULT_GROQ_MODEL
+      
+      // Check status mode and enforce restrictions
+      const appMode = statusHelper.getMode()
+      if (appMode === 'gpt') {
+        // Force GPT-OSS mode
+        model = 'openai/gpt-oss-120b'
+        console.log('[Status] Forced GPT-OSS mode (OCR required)')
+      } else if (appMode === 'maverick' && model.includes('gpt-oss')) {
+        // Force Maverick mode
+        model = API.DEFAULT_GROQ_MODEL
+        console.log('[Status] Forced Maverick mode (no fallback)')
+      }
+      
       const isTextOnlyModel = model.includes('gpt-oss')
       const isUsingFallback = this.groqProvider.isUsingFallbackModel()
 
@@ -201,6 +215,12 @@ export class ProcessingHelper {
       } catch (error: any) {
         // Handle rate limit fallback to OCR + GPT-OSS
         if (error.message === 'RATE_LIMIT_USE_OCR_FALLBACK') {
+          // Check if fallback is allowed
+          if (!statusHelper.isGptFallbackAllowed()) {
+            console.error('[Status] GPT fallback not allowed in current mode');
+            throw new Error(statusHelper.getMessage() || 'Rate limit reached. Fallback not available in current mode.');
+          }
+          
           console.log('[ProcessingHelper] Maverick rate-limited. Using OCR + GPT-OSS fallback...');
           
           if (mainWindow) {

@@ -122,6 +122,21 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     return deps.getImagePreview(path)
   })
 
+  // Get application status
+  ipcMain.handle("get-app-status", async () => {
+    try {
+      const { statusHelper } = await import("./StatusHelper")
+      return {
+        enabled: statusHelper.isEnabled(),
+        mode: statusHelper.getMode(),
+        message: statusHelper.getMessage()
+      }
+    } catch (error) {
+      console.error("Failed to get app status:", error)
+      return { enabled: true, mode: 'all', message: '' }
+    }
+  })
+
   // Get current model fallback status
   ipcMain.handle("get-fallback-status", () => {
     try {

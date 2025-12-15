@@ -57,6 +57,8 @@ interface ElectronAPI {
   getConfig: () => Promise<any>
   updateConfig: (updates: any) => Promise<any>
   checkApiKey: () => Promise<boolean>
+  getAppStatus: () => Promise<{ enabled: boolean; mode: 'all' | 'maverick' | 'gpt'; message: string }>
+  getFallbackStatus: () => Promise<{ isUsingFallback: boolean; remainingSeconds: number }>
   // Event listeners
   onShowSettings: (callback: () => void) => () => void
   onApiKeyInvalid: (callback: () => void) => () => void

@@ -27,18 +27,23 @@ export class StatusHelper {
    * Fetch status from remote server
    */
   public async fetchStatus(): Promise<AppStatus> {
-    console.log('[Status] Fetching status from:', this.STATUS_URL);
+    // Add timestamp to bust cache
+    const cacheBuster = `?t=${Date.now()}`;
+    const urlWithCacheBuster = this.STATUS_URL + cacheBuster;
+    
+    console.log('[Status] Fetching status from:', urlWithCacheBuster);
     
     return new Promise((resolve) => {
-      const url = new URL(this.STATUS_URL);
+      const url = new URL(urlWithCacheBuster);
       const protocol = url.protocol === 'https:' ? https : http;
 
       const request = protocol.get(url, {
         timeout: this.TIMEOUT_MS,
         headers: {
           'User-Agent': 'CheatSheet-AI',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       }, (response) => {
         console.log('[Status] Response status code:', response.statusCode);

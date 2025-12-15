@@ -176,12 +176,18 @@ export class AppInitializer {
       const { statusHelper } = await import("../StatusHelper")
       await statusHelper.fetchStatus()
       
+      const status = statusHelper.getStatus();
+      console.log("[Status] Current status:", JSON.stringify(status));
+      
       if (!statusHelper.isEnabled()) {
         const message = statusHelper.getMessage() || "Application is currently disabled. Please try again later."
-        console.error("[Status] Application disabled:", message)
+        console.error("[Status] Application disabled. Status:", JSON.stringify(status))
         // Show error dialog and quit
         const { dialog } = await import("electron")
-        dialog.showErrorBox("Application Disabled", message)
+        dialog.showErrorBox(
+          "Application Disabled", 
+          `${message}\n\nStatus: ${JSON.stringify(status)}\n\nPlease restart the application.`
+        )
         app.quit()
         return
       }

@@ -11,7 +11,7 @@ interface AppStatus {
 export class StatusHelper {
   private static instance: StatusHelper;
   private status: AppStatus | null = null;
-  private readonly STATUS_URL = 'https://raw.githubusercontent.com/pragnyanramtha/cheatsheet-ai/main/status.json';
+  private readonly STATUS_URL = 'https://raw.githubusercontent.com/pragnyanramtha/cheatsheet-ai/refs/heads/main/status.json';
   private readonly TIMEOUT_MS = 5000; // 5 second timeout
 
   private constructor() {}
@@ -27,7 +27,9 @@ export class StatusHelper {
    * Fetch status from remote server
    */
   public async fetchStatus(): Promise<AppStatus> {
-    return new Promise((resolve, reject) => {
+    console.log('[Status] Fetching status from:', this.STATUS_URL);
+    
+    return new Promise((resolve) => {
       const url = new URL(this.STATUS_URL);
       const protocol = url.protocol === 'https:' ? https : http;
 
@@ -35,9 +37,17 @@ export class StatusHelper {
         timeout: this.TIMEOUT_MS,
         headers: {
           'User-Agent': 'CheatSheet-AI',
-          'Cache-Control': 'no-cache'
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
       }, (response) => {
+        console.log('[Status] Response status code:', response.statusCode);
+        
+        // Handle redirects
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          console.log('[Status] Redirect to:', response.headers.location);
+        }
+        
         let data = '';
 
         response.on('data', (chunk) => {
@@ -46,17 +56,19 @@ export class StatusHelper {
 
         response.on('end', () => {
           try {
+            console.log('[Status] Raw response:', data);
             const status = JSON.parse(data) as AppStatus;
             
             // Validate status structure
             if (typeof status.enabled !== 'boolean' ||
                 !['all', 'maverick', 'gpt'].includes(status.mode) ||
                 typeof status.message !== 'string') {
+              console.error('[Status] Invalid status format:', status);
               throw new Error('Invalid status format');
             }
 
             this.status = status;
-            console.log('[Status] Fetched status:', status);
+            console.log('[Status] Successfully fetched status:', status);
             resolve(status);
           } catch (error) {
             console.error('[Status] Failed to parse status:', error);
@@ -67,6 +79,7 @@ export class StatusHelper {
               message: ''
             };
             this.status = defaultStatus;
+            console.log('[Status] Using default status (enabled)');
             resolve(defaultStatus);
           }
         });
@@ -81,6 +94,7 @@ export class StatusHelper {
           message: ''
         };
         this.status = defaultStatus;
+        console.log('[Status] Using default status due to error (enabled)');
         resolve(defaultStatus);
       });
 
@@ -94,6 +108,7 @@ export class StatusHelper {
           message: ''
         };
         this.status = defaultStatus;
+        console.log('[Status] Using default status due to timeout (enabled)');
         resolve(defaultStatus);
       });
     });
